@@ -14,6 +14,7 @@ function OnboardingPage() {
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
     const [loading, setLoading] = useState(false);
 
+
     // Profile form state
     const [fullname, setFullname] = useState('');
     const [email, setEmail] = useState('');
@@ -175,7 +176,6 @@ function OnboardingPage() {
                         <p className="step-description">
                             Tell us about yourself so we can find the best matching jobs for you.
                         </p>
-
                         <form className="profile-form" onSubmit={(e) => { e.preventDefault(); handleSaveProfile(); }}>
                             <div className="form-group">
                                 <label htmlFor="fullname">Full Name *</label>
