@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import LandingPage from './pages/LandingPage';
 import FeedPage from './pages/FeedPage';
 import ApplicationPreviewPage from './pages/ApplicationPreviewPage';
 import ApplicationHistoryPage from './pages/ApplicationHistoryPage';
@@ -7,6 +8,7 @@ import AnimatedBackground from './components/AnimatedBackground';
 
 function App() {
   return (
+
     <>
       <AnimatedBackground />
       <Routes>
@@ -16,10 +18,16 @@ function App() {
         <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
       </Routes>
     </>
+
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/feed" element={<FeedPage />} />
+      <Route path="/applications" element={<ApplicationHistoryPage />} />
+      <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
+    </Routes>
+
   );
 }
 
 export default App;
-
-
-

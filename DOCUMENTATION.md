@@ -457,16 +457,20 @@ jobs = scrape_jobs(
 
 ### 8.1 Development
 
+For local development, Docker Compose is the recommended setup:
+
 ```bash
-# Database
-docker-compose up -d
+# From project root
+cp .env.docker .env
+# fill API keys and credentials in .env
 
-# Backend
-cd backend && npm run start:dev
-
-# Frontend
-cd frontend && npm run dev
+# start postgres + backend + frontend
+docker compose up --build
 ```
+
+Notes:
+- Keep Docker Playwright image version aligned with the playwright package version in backend/package.json.
+- If Skyvern is not running locally, considered fill credentials in `backend/src/config`.
 
 ### 8.2 Production Considerations
 
@@ -509,3 +513,6 @@ See [README.md](./README.md) for complete API endpoint documentation.
 ---
 
 *Last Updated: January 2026*
+
+
+

@@ -23,6 +23,8 @@
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [Quick Start](#-quick-start)
+  - [Docker Setup ](#option-1-docker-setup-recommended-)
+  - [Local Development](#option-2-local-development-setup)
 - [API Reference](#-api-reference)
 - [Contributing](#-contributing)
 - [Apertre 3.0 Contributors](#-apertre-30-contributors)
@@ -103,7 +105,7 @@ HIRE automates the entire workflow:
 | **Automation** | Playwright | Browser automation |
 | **AI/LLM** | Google Gemini / OpenAI | Resume tailoring, form answers |
 | **Frontend** | React + Vite | User interface |
-| **Containerization** | Docker | Easy deployment |
+| **Containerization** | Docker + Docker Compose | Easy deployment, development |
 
 ---
 
@@ -150,6 +152,42 @@ Before you begin, make sure you have:
 - ✅ **Git** - [Download](https://git-scm.com/)
 - ✅ **Gemini API Key** - [Get Free Key](https://aistudio.google.com/apikey)
 
+### Option 1: Docker Setup 
+
+The easiest way to get started! Docker handles all dependencies including Playwright browsers.
+
+```bash
+# Clone the repository
+git clone https://github.com/JAYATIAHUJA/HIRE.git
+cd HIRE
+
+# Configure environment
+cp .env.docker .env
+# Edit .env with your API keys and credentials
+
+# Start all services (database, backend, frontend)
+npm run docker:dev
+
+# View logs
+npm run docker:logs
+
+# Access the application
+# Frontend: http://localhost:5173
+# Backend API: http://localhost:3000
+```
+
+That's it! All services are running in containers with hot reload enabled.
+
+Docker notes:
+- Local development uses Docker Compose (Postgres + backend + frontend) with hot reload.
+- Backend uses mcr.microsoft.com/playwright:v1.40.1-jammy-chromium for Playwright + Chromium.
+- Keep Docker Playwright version aligned with backend/package.json Playwright version.
+- Docker is intended for local development; production deployment should use managed cloud services.
+
+### Option 2: Local Development Setup
+
+If you prefer running services locally:
+
 ### Step 1: Clone & Install
 
 ```bash
@@ -168,10 +206,10 @@ cd ../frontend && npm install
 
 ```bash
 # From project root
-docker-compose up -d
+docker compose up -d postgres
 
 # Verify database is running
-docker ps
+docker compose ps
 ```
 
 ### Step 3: Configure Environment
@@ -423,3 +461,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE
 [Report Bug](https://github.com/JAYATIAHUJA/HIRE/issues/new?template=bug_report.yml) · [Request Feature](https://github.com/JAYATIAHUJA/HIRE/issues/new?template=feature_request.yml) · [Join Community](#)
 
 </div>
+
+
+

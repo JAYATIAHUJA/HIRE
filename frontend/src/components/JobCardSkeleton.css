@@ -1,0 +1,104 @@
+.job-card.skeleton {
+    position: relative;
+    overflow: hidden;
+}
+
+/* Shimmer overlay */
+.job-card.skeleton::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.4),
+            transparent);
+    transform: translateX(-100%);
+    animation: jobCardSkeletonShimmer 1.6s infinite;
+}
+
+/* Base skeleton line */
+.job-card.skeleton .skeleton-line,
+.job-card.skeleton .skeleton-pill {
+    background: rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+/* Title */
+.job-card.skeleton .skeleton-line.title {
+    height: 18px;
+    width: 70%;
+    margin-bottom: 14px;
+}
+
+/* Body lines */
+.job-card.skeleton .skeleton-line {
+    height: 12px;
+}
+
+/* Bottom CTA placeholder */
+.job-card.skeleton .skeleton-pill {
+    height: 28px;
+    width: 45%;
+    border-radius: 999px;
+    margin-top: 14px;
+}
+
+/* Shimmer animation */
+@keyframes jobCardSkeletonShimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* Variants for realism */
+
+.variant-1 .line-1 {
+    width: 95%;
+}
+
+.variant-1 .line-2 {
+    width: 88%;
+}
+
+.variant-1 .line-3 {
+    width: 76%;
+}
+
+.variant-2 .line-1 {
+    width: 90%;
+}
+
+.variant-2 .line-2 {
+    width: 80%;
+}
+
+.variant-2 .line-3 {
+    width: 65%;
+}
+
+.variant-3 .line-1 {
+    width: 100%;
+}
+
+.variant-3 .line-2 {
+    width: 85%;
+}
+
+.variant-3 .line-3 {
+    width: 72%;
+}
+
+/* Offset shimmer timing */
+.variant-2::after {
+    animation: jobCardSkeletonShimmer 1.5s infinite;
+
+}
+
+.variant-3::after {
+    animation: jobCardSkeletonShimmer 1.5s infinite;
+
+}
