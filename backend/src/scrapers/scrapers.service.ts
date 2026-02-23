@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InternshalaScraperV2 } from './internshala-v2.scraper';
@@ -226,13 +226,19 @@ export class ScrapersService {
       const scrapedJob = await this.universalScraper.scrapeJob(url);
 
       if (!scrapedJob) {
-        throw new Error(`Could not extract job details. The site might be blocking bots or the content is not a supported job posting.`);
+        throw new BadRequestException(
+          'Could not extract job details. The site might be blocking bots or the content is not a supported job posting.'
+        );
       }
 
       return await this.jobsService.saveScrapedJob('other', scrapedJob);
     } catch (error) {
       this.logger.error(`Universal scrape failed for ${url}: ${error.message}`);
-      throw new Error(error.message); // Re-throw to be handled by controller
+      // Re-throw HttpExceptions as-is, wrap others in BadRequestException
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      throw new BadRequestException('Failed to scrape job from the provided URL');
     }
   }
 }

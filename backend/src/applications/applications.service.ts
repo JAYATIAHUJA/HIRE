@@ -9,6 +9,7 @@ import { SimpleAutomationService } from '../services/simple-automation.service';
 import { AuditLogService } from '../services/audit-log.service';
 import { JobsService } from '../jobs/jobs.service';
 import { UsersService } from '../users/users.service';
+import { sanitizeErrorMessage } from '../common/utils/error-sanitizer.util';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -164,12 +165,16 @@ export class ApplicationsService {
           await this.auditLogService.logSubmitted(application.id, 'Playwright');
         } else {
           this.logger.warn(`⚠️ Automation failed: ${result.error}`);
-          await this.transitionTo(application, 'Failed', result.error);
+          // Sanitize error message before storing for client exposure
+          const safeError = sanitizeErrorMessage(new Error(result.error || 'Automation failed'), 'Application processing failed');
+          await this.transitionTo(application, 'Failed', safeError);
           await this.auditLogService.logFailed(application.id, result.error || 'Automation failed');
         }
       } catch (error) {
         this.logger.error(`Playwright error: ${error.message}`);
-        await this.transitionTo(application, 'Failed', error.message);
+        // Sanitize error message before storing for client exposure
+        const safeError = sanitizeErrorMessage(error, 'Application processing failed');
+        await this.transitionTo(application, 'Failed', safeError);
         await this.auditLogService.logFailed(application.id, error.message);
       }
     } catch (error) {
@@ -332,7 +337,9 @@ export class ApplicationsService {
 
     if (!application) return;
 
-    await this.transitionTo(application, 'Failed', error.message || 'Unknown error');
+    // Sanitize error message before storing for client exposure
+    const safeError = sanitizeErrorMessage(error, 'Application processing failed');
+    await this.transitionTo(application, 'Failed', safeError);
     await this.auditLogService.logFailed(applicationId, error.message);
   }
 }

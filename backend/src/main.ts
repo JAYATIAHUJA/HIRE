@@ -4,6 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { join } from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -18,6 +19,9 @@ async function bootstrap() {
       origin: '*', // Allow all origins for testing
       credentials: true,
     });
+
+    // Global exception filter for production-safe error handling
+    app.useGlobalFilters(new HttpExceptionFilter());
 
     app.useGlobalPipes(
       new ValidationPipe({

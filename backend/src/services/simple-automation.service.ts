@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { chromium, Browser, Page, BrowserContext, Dialog } from 'playwright';
 import { LlmService } from './llm.service';
+import { sanitizeErrorMessage } from '../common/utils/error-sanitizer.util';
 import * as path from 'path';
 import * as fs from 'fs';
 
@@ -158,9 +159,12 @@ export class SimpleAutomationService {
                 await this.takeScreenshot(page, 'error');
             }
 
+            // Sanitize error message for client exposure
+            const safeError = sanitizeErrorMessage(error, 'Application automation failed');
+
             return {
                 success: false,
-                error: error.message,
+                error: safeError,
                 requiresUserAction: true,
                 actionRequired: 'Please check the browser and complete manually if needed',
             };
@@ -235,7 +239,9 @@ export class SimpleAutomationService {
 
         } catch (error) {
             this.notify(`Login error: ${error.message}`, 'error');
-            return { success: false, error: `Login failed: ${error.message}` };
+            // Sanitize error message for client exposure
+            const safeError = sanitizeErrorMessage(error, 'Login failed');
+            return { success: false, error: safeError };
         }
     }
 
@@ -286,7 +292,9 @@ export class SimpleAutomationService {
             };
 
         } catch (error) {
-            return { success: false, error: `Failed to click Apply: ${error.message}` };
+            // Sanitize error message for client exposure
+            const safeError = sanitizeErrorMessage(error, 'Failed to click Apply button');
+            return { success: false, error: safeError };
         }
     }
 
