@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api, Application } from '../api/client';
+import { notifySuccess } from '../lib/api';
 import './ApplicationPreviewPage.css';
 
 function ApplicationPreviewPage() {
@@ -41,12 +42,13 @@ function ApplicationPreviewPage() {
   const loadApplication = async () => {
     if (!id) return;
 
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
       const app = await api.getApplication(id);
       setApplication(app);
     } catch (err: any) {
+      // Error toast is handled by the interceptor
       setError(err.response?.data?.error || err.message || 'Failed to load application');
     } finally {
       setLoading(false);
@@ -56,13 +58,12 @@ function ApplicationPreviewPage() {
   const handleApprove = async () => {
     if (!id) return;
 
+    setApproving(true);
     try {
-      setApproving(true);
       await api.approveApplication(id);
+      notifySuccess('Application approved successfully!');
       // Reload to get updated status
       await loadApplication();
-    } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to approve application');
     } finally {
       setApproving(false);
     }
@@ -250,18 +251,16 @@ function ApplicationPreviewPage() {
             <button
               className="primary-btn"
               onClick={async () => {
+                setApproving(true);
                 try {
-                  setApproving(true);
-                  // We can reuse the approve endpoint or add a retry one, but let's just use a simple restart logic
-                  // Actually the retry endpoint exists in backend
                   const email = localStorage.getItem('internshala_email') || undefined;
                   const password = localStorage.getItem('internshala_password') || undefined;
                   const credentials = email && password ? { email, password } : undefined;
 
                   await api.retryApplication(id || '', credentials);
+                  notifySuccess('Retry started successfully!');
                   window.location.reload();
-                } catch (e) {
-                  alert('Retry failed');
+                } finally {
                   setApproving(false);
                 }
               }}

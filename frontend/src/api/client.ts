@@ -1,13 +1,7 @@
-import axios from 'axios';
+import axiosInstance from '../lib/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
-
-export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Re-export the centralized axios instance for backward compatibility
+export const apiClient = axiosInstance;
 
 export interface JobCard {
   jobId: string;
@@ -61,7 +55,7 @@ export const api = {
     masterResumeText: string;
     skills: string[];
   }): Promise<{ id: string }> => {
-    const response = await apiClient.post('/api/users', userData); // NOTE: Ensure correct endpoint (previous edit might have changed it to /api/users)
+    const response = await apiClient.post('/api/users', userData);
     return response.data;
   },
 
@@ -72,7 +66,6 @@ export const api = {
   },
 
   scrapeJobs: async (): Promise<{ message: string; status: string }> => {
-    // Call the updated endpoint that includes RSS
     const response = await apiClient.post('/api/scrapers/scrape-all');
     return response.data;
   },
@@ -147,6 +140,3 @@ export const api = {
     return response.data;
   },
 };
-
-
-

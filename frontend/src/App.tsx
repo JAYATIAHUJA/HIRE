@@ -1,5 +1,5 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { Toaster } from 'sonner';
 import LandingPage from './pages/LandingPage';
 import FeedPage from './pages/FeedPage';
 import ApplicationPreviewPage from './pages/ApplicationPreviewPage';
@@ -8,13 +8,16 @@ import OnboardingPage from './pages/OnboardingPage';
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/feed" element={<FeedPage />} />
-      <Route path="/applications" element={<ApplicationHistoryPage />} />
-      <Route path="/onboarding" element={<OnboardingPage />} />
-      <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
-    </Routes>
+    <>
+      <Toaster richColors position="top-right" />
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/feed" element={<FeedPage />} />
+        <Route path="/applications" element={<ApplicationHistoryPage />} />
+        <Route path="/onboarding" element={<OnboardingPage />} />
+        <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
+      </Routes>
+    </>
   );
 }
 

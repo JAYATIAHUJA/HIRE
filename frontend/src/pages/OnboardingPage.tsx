@@ -100,6 +100,7 @@ function OnboardingPage() {
             // Move to login step
             setStep('login');
         } catch (err: any) {
+            // Error toast is handled by the interceptor
             setError(err.response?.data?.message || err.message || 'Failed to save profile');
         } finally {
             setLoading(false);
@@ -133,6 +134,7 @@ function OnboardingPage() {
             await api.scrapeJobs();
             setStep('ready');
         } catch (err: any) {
+            // Error toast is handled by the interceptor
             setError(err.response?.data?.message || err.message || 'Failed to scrape jobs');
         } finally {
             setLoading(false);

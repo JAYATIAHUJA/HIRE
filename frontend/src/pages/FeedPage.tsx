@@ -2,6 +2,7 @@ import JobCardSkeleton from '../components/JobCardSkeleton';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, JobCard } from '../api/client';
+import { notifySuccess } from '../lib/api';
 import './FeedPage.css';
 
 function FeedPage() {
@@ -86,15 +87,12 @@ function FeedPage() {
   const [scraping, setScraping] = useState(false);
 
   const handleScrapeAll = async () => {
+    setScraping(true);
     try {
-      setScraping(true);
-      const res = await api.scrapeJobs(); 
-      alert(res.message || 'Scraping started in background.');
+      const res = await api.scrapeJobs();
+      notifySuccess(res.message || 'Scraping started in background.');
       // Wait a partial moment just to give UI feedback, but don't block
       setTimeout(() => loadFeed(), 2000);
-    } catch (err: any) {
-      console.error('Scrape error:', err);
-      alert('Failed to start scraping: ' + err.message);
     } finally {
       setScraping(false);
     }
@@ -103,14 +101,15 @@ function FeedPage() {
   const loadFeed = async () => {
     if (!userId) return;
 
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
       const feed = await api.getFeed(userId);
       console.log('Feed loaded:', feed);
       setJobs(Array.isArray(feed) ? feed : []);
     } catch (err: any) {
-      console.error('Feed load error:', err);
+      // Error toast is handled by the interceptor
+      // Just set local error state for UI display
       setError(err.response?.data?.error || err.message || 'Failed to load feed');
     } finally {
       setLoading(false);
@@ -120,16 +119,14 @@ function FeedPage() {
   const handleApply = async (jobId: string) => {
     if (!userId) return;
 
+    setApplying(jobId);
     try {
-      setApplying(jobId);
       const email = localStorage.getItem('internshala_email') || undefined;
       const password = localStorage.getItem('internshala_password') || undefined;
       const credentials = email && password ? { email, password } : undefined;
 
       const result = await api.swipeRight(userId, jobId, credentials);
       navigate(`/applications/${result.id}`);
-    } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to apply');
     } finally {
       setApplying(null);
     }
@@ -139,15 +136,13 @@ function FeedPage() {
     e.preventDefault();
     if (!newJobUrl) return;
 
+    setAddingJob(true);
     try {
-      setAddingJob(true);
       await api.scrapeUniversal(newJobUrl);
       setNewJobUrl('');
       setShowAddUrl(false);
-      alert('Job scraped successfully! Reloading feed...');
+      notifySuccess('Job scraped successfully! Reloading feed...');
       loadFeed();
-    } catch (err: any) {
-      alert(err.response?.data?.error || err.message || 'Failed to scrape job');
     } finally {
       setAddingJob(false);
     }

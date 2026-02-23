@@ -25,9 +25,9 @@ function ApplicationHistoryPage() {
   const loadApplications = async () => {
     if (!userId) return;
 
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      setError(null);
       const apps = await api.getUserApplications(userId);
       // Sort by most recent first
       const sorted = apps.sort((a, b) => 
@@ -35,6 +35,7 @@ function ApplicationHistoryPage() {
       );
       setApplications(sorted);
     } catch (err: any) {
+      // Error toast is handled by the interceptor
       setError(err.response?.data?.error || err.message || 'Failed to load applications');
     } finally {
       setLoading(false);
