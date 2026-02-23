@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import './OnboardingPage.css';
@@ -19,6 +19,11 @@ function OnboardingPage() {
     const [email, setEmail] = useState('');
     const [skills, setSkills] = useState('');
     const [resumeText, setResumeText] = useState('');
+    
+    // File upload state
+    const [resumeFile, setResumeFile] = useState<File | null>(null);
+    const [uploadMode, setUploadMode] = useState<'text' | 'file'>('text');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Check if user already exists
     useEffect(() => {
@@ -63,12 +68,38 @@ function OnboardingPage() {
             isValid = false;
         }
 
-        if (!trimmedResumeText) {
-            newErrors.resume = 'Resume text is required';
-            isValid = false;
-        } else if (trimmedResumeText.length < 50) {
-            newErrors.resume = 'Please provide a more detailed resume (at least 50 characters)';
-            isValid = false;
+        // Validate based on upload mode
+        if (uploadMode === 'text') {
+            if (!trimmedResumeText) {
+                newErrors.resume = 'Resume text is required';
+                isValid = false;
+            } else if (trimmedResumeText.length < 50) {
+                newErrors.resume = 'Please provide a more detailed resume (at least 50 characters)';
+                isValid = false;
+            }
+        } else {
+            // File upload mode
+            if (!resumeFile) {
+                newErrors.resume = 'Please upload a resume file';
+                isValid = false;
+            } else {
+                // Validate file type
+                const allowedTypes = [
+                    'application/pdf',
+                    'application/msword',
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'text/plain',
+                ];
+                if (!allowedTypes.includes(resumeFile.type)) {
+                    newErrors.resume = 'Only PDF, DOC, DOCX, and TXT files are allowed';
+                    isValid = false;
+                }
+                // Validate file size (5MB max)
+                if (resumeFile.size > 5 * 1024 * 1024) {
+                    newErrors.resume = 'File size must be less than 5MB';
+                    isValid = false;
+                }
+            }
         }
 
         setErrors(newErrors);
@@ -86,16 +117,28 @@ function OnboardingPage() {
                 .map((s) => s.trim())
                 .filter((s) => s.length > 0);
 
+            // Create user first with placeholder resume text if uploading file
             const response = await api.createUser({
                 fullname: trimmedFullname,
                 email: trimmedEmail,
-                masterResumeText: trimmedResumeText,
+                masterResumeText: uploadMode === 'text' ? trimmedResumeText : 'Resume uploaded via file',
                 skills: skillsArray,
             });
 
-            setUserId(response.id);
-            localStorage.setItem('userId', response.id);
+            const newUserId = response.id;
+            setUserId(newUserId);
+            localStorage.setItem('userId', newUserId);
             localStorage.setItem('hasProfile', 'true');
+
+            // If file upload mode, upload the resume file
+            if (uploadMode === 'file' && resumeFile) {
+                try {
+                    await api.uploadResume(newUserId, resumeFile);
+                } catch (uploadErr: any) {
+                    console.error('Resume upload failed:', uploadErr);
+                    // Don't block onboarding if upload fails, user can retry later
+                }
+            }
 
             // Move to login step
             setStep('login');
@@ -105,6 +148,29 @@ function OnboardingPage() {
         } finally {
             setLoading(false);
         }
+    };
+
+    // Handle file selection
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setResumeFile(file);
+            if (errors.resume) setErrors({ ...errors, resume: '' });
+        }
+    };
+
+    // Handle drag and drop
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file) {
+            setResumeFile(file);
+            if (errors.resume) setErrors({ ...errors, resume: '' });
+        }
+    };
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
     };
 
     // Complete login and move to scraping
@@ -224,18 +290,41 @@ function OnboardingPage() {
                                 />
                             </div>
 
+                            {/* Resume Input Mode Toggle */}
                             <div className="form-group">
-                                <label htmlFor="resume">Your Resume/CV (paste text) *</label>
-                                <textarea
-                                    id="resume"
-                                    value={resumeText}
-                                    onChange={(e) => {
-                                        setResumeText(e.target.value);
-                                        if (errors.resume) setErrors({ ...errors, resume: '' });
-                                    }}
-                                    required
-                                    className={errors.resume ? 'error-border' : ''}
-                                    placeholder={`Paste your complete resume here. Include education, experience, projects, and skills...
+                                <label>Your Resume/CV *</label>
+                                <div className="upload-mode-toggle">
+                                    <button
+                                        type="button"
+                                        className={`toggle-btn ${uploadMode === 'text' ? 'active' : ''}`}
+                                        onClick={() => setUploadMode('text')}
+                                    >
+                                        📝 Paste Text
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`toggle-btn ${uploadMode === 'file' ? 'active' : ''}`}
+                                        onClick={() => setUploadMode('file')}
+                                    >
+                                        📁 Upload File
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Text Input Mode */}
+                            {uploadMode === 'text' && (
+                                <div className="form-group">
+                                    <label htmlFor="resume">Resume Text *</label>
+                                    <textarea
+                                        id="resume"
+                                        value={resumeText}
+                                        onChange={(e) => {
+                                            setResumeText(e.target.value);
+                                            if (errors.resume) setErrors({ ...errors, resume: '' });
+                                        }}
+                                        required
+                                        className={errors.resume ? 'error-border' : ''}
+                                        placeholder={`Paste your complete resume here. Include education, experience, projects, and skills...
 
 Example:
 JOHN DOE
@@ -251,13 +340,55 @@ B.Tech in Computer Science, XYZ University (2022)
 
 SKILLS
 JavaScript, React, Node.js, Python, SQL`}
-                                    rows={12}
-                                />
-                                {errors.resume && <span className="input-error">{errors.resume}</span>}
-                                <p className="help-text">
-                                    💡 The more detailed your resume, the better job matches you'll get!
-                                </p>
-                            </div>
+                                        rows={12}
+                                    />
+                                    {errors.resume && <span className="input-error">{errors.resume}</span>}
+                                    <p className="help-text">
+                                        💡 The more detailed your resume, the better job matches you'll get!
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* File Upload Mode */}
+                            {uploadMode === 'file' && (
+                                <div className="form-group">
+                                    <label htmlFor="resume-file">Resume File (PDF, DOC, DOCX, TXT) *</label>
+                                    <div
+                                        className={`file-drop-zone ${errors.resume ? 'error-border' : ''} ${resumeFile ? 'has-file' : ''}`}
+                                        onDrop={handleDrop}
+                                        onDragOver={handleDragOver}
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <input
+                                            type="file"
+                                            id="resume-file"
+                                            ref={fileInputRef}
+                                            accept=".pdf,.doc,.docx,.txt"
+                                            onChange={handleFileChange}
+                                            style={{ display: 'none' }}
+                                        />
+                                        {resumeFile ? (
+                                            <div className="file-selected">
+                                                <span className="file-icon">📄</span>
+                                                <span className="file-name">{resumeFile.name}</span>
+                                                <span className="file-size">
+                                                    {(resumeFile.size / 1024).toFixed(1)} KB
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="file-prompt">
+                                                <span className="upload-icon">📤</span>
+                                                <span>Drag & drop your resume here, or click to browse</span>
+                                                <span className="file-types">PDF, DOC, DOCX, TXT (max 5MB)</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    {errors.resume && <span className="input-error">{errors.resume}</span>}
+                                    <p className="help-text">
+                                        💡 Upload your resume file and we'll extract the text automatically!
+                                    </p>
+                                </div>
+                            )}
 
                             <button type="submit" className="primary-btn" disabled={loading}>
                                 {loading ? '⏳ Saving...' : '💾 Save Profile & Continue'}

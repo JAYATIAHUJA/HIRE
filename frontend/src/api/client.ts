@@ -47,6 +47,17 @@ export interface BrowserProfile {
   createdAt: string;
 }
 
+export interface UploadResumeResponse {
+  message: string;
+  fileName: string;
+  fileUrl: string;
+  extractedSkills: string[];
+  extractedEmail?: string;
+  extractedPhone?: string;
+  extractedName?: string;
+  textLength: number;
+}
+
 export const api = {
   // User APIs
   createUser: async (userData: {
@@ -56,6 +67,31 @@ export const api = {
     skills: string[];
   }): Promise<{ id: string }> => {
     const response = await apiClient.post('/api/users', userData);
+    return response.data;
+  },
+
+  // Upload resume file via multipart/form-data (no Base64 encoding)
+  // This is more efficient: ~33% smaller payload, no OOM risk
+  uploadResume: async (
+    userId: string,
+    file: File,
+    description?: string
+  ): Promise<UploadResumeResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (description) {
+      formData.append('description', description);
+    }
+
+    const response = await apiClient.post(
+      `/api/users/${userId}/upload-resume`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
     return response.data;
   },
 

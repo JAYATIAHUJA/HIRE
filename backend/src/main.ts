@@ -5,6 +5,7 @@ import { join } from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import multipart from '@fastify/multipart';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -14,6 +15,14 @@ async function bootstrap() {
       AppModule,
       new FastifyAdapter({ logger: true }),
     );
+
+    // Register multipart plugin for file uploads
+    await app.register(multipart, {
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB limit
+        files: 1, // Only one file per request
+      },
+    });
 
     app.enableCors({
       origin: '*', // Allow all origins for testing

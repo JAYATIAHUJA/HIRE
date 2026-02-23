@@ -7,10 +7,24 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
+import { FastifyRequest } from 'fastify';
+import { MultipartFile } from '@fastify/multipart';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
+
+// Maximum file size: 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+// Allowed MIME types for resume uploads
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+];
 
 class CreateUserDto {
   @IsString()
@@ -44,20 +58,6 @@ class UpdateResumeDto {
   skills?: string[];
 }
 
-class UploadResumeDto {
-  @IsString()
-  @IsNotEmpty()
-  fileContent: string; // Base64 encoded file
-
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  mimeType: string;
-}
-
 @Controller('api/users')
 export class UsersController {
   constructor(
@@ -89,60 +89,64 @@ export class UsersController {
   }
 
   /**
-   * Upload resume file (PDF/DOCX/DOC/TXT) as base64
+   * Upload resume file (PDF/DOCX/DOC/TXT) via multipart/form-data
    * 
-   * Example request:
-   * {
-   *   "fileContent": "JVBERi0xLjQK...", // Base64 encoded file
-   *   "fileName": "resume.pdf",
-   *   "mimeType": "application/pdf"
-   * }
+   * Uses Fastify's native multipart support for efficient file streaming.
+   * File size limit: 5MB
+   * Allowed types: PDF, DOC, DOCX, TXT
+   * 
+   * Example request (multipart/form-data):
+   * - file: <binary file data>
    */
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
   async uploadResume(
     @Param('id') userId: string,
-    @Body() uploadDto: UploadResumeDto,
+    @Req() request: FastifyRequest,
   ) {
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-    ];
-    const allowedExts = ['.pdf', '.doc', '.docx', '.txt'];
-    const ext = uploadDto.fileName.toLowerCase().slice(uploadDto.fileName.lastIndexOf('.'));
-
-    if (!allowedTypes.includes(uploadDto.mimeType) && !allowedExts.includes(ext)) {
-      throw new BadRequestException('Only PDF, DOC, DOCX, and TXT files are allowed');
-    }
-
-    // Find user
+    // Find user first
     const user = await this.usersService.findOne(userId);
     if (!user) {
       throw new BadRequestException('User not found');
     }
 
-    // Decode base64 content
-    let buffer: Buffer;
-    try {
-      buffer = Buffer.from(uploadDto.fileContent, 'base64');
-    } catch (e) {
-      throw new BadRequestException('Invalid base64 file content');
+    // Get the file from multipart - the file() method is added by @fastify/multipart
+    const file = await (request as any).file();
+    if (!file) {
+      throw new BadRequestException('File is required');
     }
 
-    // Parse resume
+    // Validate MIME type
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Only PDF, DOC, DOCX, and TXT files are allowed'
+      );
+    }
+
+    // Read file buffer with size limit
+    const buffer = await file.toBuffer();
+    
+    // Validate file size
+    if (buffer.length > MAX_FILE_SIZE) {
+      throw new BadRequestException(
+        `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`
+      );
+    }
+
+    // Extract filename
+    const filename = file.filename || 'resume.pdf';
+
+    // Parse resume using the buffer directly (no Base64 decoding needed)
     const parsedResume = await this.resumeParserService.parseResume({
       buffer,
-      originalname: uploadDto.fileName,
-      mimetype: uploadDto.mimeType,
+      originalname: filename,
+      mimetype: file.mimetype,
     });
 
     // Save resume file
     const resumeFileUrl = await this.resumeParserService.saveResumeFile(userId, {
       buffer,
-      originalname: uploadDto.fileName,
+      originalname: filename,
     });
 
     // Update user with parsed resume text and extracted skills
@@ -160,7 +164,7 @@ export class UsersController {
 
     return {
       message: 'Resume uploaded and parsed successfully',
-      fileName: uploadDto.fileName,
+      fileName: filename,
       fileUrl: resumeFileUrl,
       extractedSkills: parsedResume.extractedSkills,
       extractedEmail: parsedResume.extractedEmail,
