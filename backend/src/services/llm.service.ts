@@ -83,8 +83,9 @@ Return format: ["skill1", "skill2", "skill3"]`;
           const cleaned = content?.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
           return JSON.parse(cleaned || '[]');
         } else if (this.provider === 'gemini' && this.gemini) {
-          // Use gemini-1.5-flash which is more standard/stable
-          const model = this.gemini.getGenerativeModel({ model: 'gemini-1.5-flash' });
+          // Fallback to gemini-pro if flash fails, or just use gemini-pro
+          const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash'; 
+          const model = this.gemini.getGenerativeModel({ model: modelName });
           const result = await model.generateContent(prompt);
           const response = result.response.text();
           const cleaned = response.trim().replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -216,6 +217,62 @@ Example format: { "field_id_1": "Answer text", "field_id_2": "12" }
         else fallback[q.id] = "Please refer to my resume.";
       });
       return fallback;
+    }
+  }
+
+  async extractJobDetailsFromText(text: string, url: string): Promise<any> {
+    const prompt = `You are a job extraction agent. Extract structured job details from the following raw web page text.
+    
+    Url: ${url}
+    
+    Raw Text:
+    ${text.substring(0, 15000)} ... (truncated)
+    
+    Return a Strict JSON object with these fields:
+    - title (string): Job title
+    - company (string): Company name
+    - location (string): Location
+    - description (string): Full job description text
+    - requirements (array of strings): Key skills/requirements
+    - employmentType (string): "full-time", "part-time", "contract", "internship", etc.
+    - postedAt (string or null): Date posted if found
+    - salary (string or null): Salary range if found
+    
+    If you cannot find a valid job posting in the text, return null. 
+    Only return valid JSON, no markdown formatting.`;
+
+    try {
+      return await this.withRetry(async () => {
+        let responseText = '';
+        if (this.provider === 'openai' && this.openai) {
+          const response = await this.openai.chat.completions.create({
+            model: 'gpt-4-turbo-preview',
+            messages: [
+              {
+                role: 'system',
+                content: 'You are a precise data extraction agent. Return only valid JSON.',
+              },
+              { role: 'user', content: prompt },
+            ],
+            temperature: 0.1,
+          });
+          responseText = response.choices[0].message.content || '';
+        } else if (this.provider === 'gemini' && this.gemini) {
+          const modelName = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+          const model = this.gemini.getGenerativeModel({ model: modelName });
+          const result = await model.generateContent(prompt);
+          responseText = result.response.text();
+        } else {
+          throw new Error('No LLM provider configured');
+        }
+
+        const cleaned = responseText.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+        if (cleaned.toLowerCase() === 'null') return null;
+        return JSON.parse(cleaned);
+      });
+    } catch (error) {
+      this.logger.error(`Error extracting job details via LLM: ${error.message}`);
+      return null;
     }
   }
 }

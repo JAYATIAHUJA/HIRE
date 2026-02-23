@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { JobListing } from './entities/job-listing.entity';
+import { JobListing, Platform } from './entities/job-listing.entity';
 import { User } from '../users/entities/user.entity';
 import { LlmService } from '../services/llm.service';
 import { MatchingService } from '../services/matching.service';
@@ -20,7 +20,7 @@ export class JobsService {
   ) { }
 
   async saveScrapedJob(
-    platform: 'internshala' | 'linkedin',
+    platform: Platform,
     scrapedJob: {
       externalId: string;
       title: string;

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -11,7 +11,7 @@ export const apiClient = axios.create({
 
 export interface JobCard {
   jobId: string;
-  platform: 'internshala' | 'linkedin';
+  platform: 'internshala' | 'linkedin' | 'glassdoor' | 'indeed' | 'monster' | 'ziprecruiter' | 'other' | string;
   title: string;
   company: string;
   matchScore: number;
@@ -35,7 +35,7 @@ export interface Application {
     id: string;
     title: string;
     company: string;
-    platform: 'internshala' | 'linkedin';
+    platform: 'internshala' | 'linkedin' | 'glassdoor' | 'indeed' | 'monster' | 'ziprecruiter' | 'other' | string;
     url: string;
     location?: string;
   };
@@ -71,8 +71,14 @@ export const api = {
     return response.data;
   },
 
-  scrapeJobs: async (): Promise<{ internshala: number; linkedin: number }> => {
-    const response = await apiClient.post('/api/scrapers/scrape-jobs');
+  scrapeJobs: async (): Promise<{ message: string; status: string }> => {
+    // Call the updated endpoint that includes RSS
+    const response = await apiClient.post('/api/scrapers/scrape-all');
+    return response.data;
+  },
+
+  scrapeUniversal: async (url: string): Promise<{ message: string; job: any }> => {
+    const response = await apiClient.post('/api/scrapers/universal', { url });
     return response.data;
   },
 

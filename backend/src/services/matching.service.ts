@@ -94,11 +94,17 @@ export class MatchingService {
     const profileText = `${user.masterResumeText}\n\nSkills: ${(user.skills || []).join(', ')}`;
 
     // Generate embedding
-    const embedding = await this.llmService.generateEmbedding(profileText);
-
-    // Update user
-    user.profileVector = embedding;
-    await this.userRepository.save(user);
+    try {
+      const embedding = await this.llmService.generateEmbedding(profileText);
+      // Update user
+      user.profileVector = embedding;
+      await this.userRepository.save(user);
+    } catch (error) {
+      console.warn(`Failed to generate profile embedding for user ${userId}: ${error.message}`);
+      // Fallback: Use zero vector so feed can load
+      user.profileVector = new Array(768).fill(0);
+      await this.userRepository.save(user);
+    }
   }
 
   async ensureJobDescriptionVector(jobId: string): Promise<void> {
@@ -109,11 +115,17 @@ export class MatchingService {
     }
 
     // Generate embedding
-    const embedding = await this.llmService.generateEmbedding(job.description);
-
-    // Update job
-    job.descriptionVector = embedding;
-    await this.jobRepository.save(job);
+    try {
+      const embedding = await this.llmService.generateEmbedding(job.description);
+      // Update job
+      job.descriptionVector = embedding;
+      await this.jobRepository.save(job);
+    } catch (error) {
+      console.warn(`Failed to generate job embedding for job ${jobId}: ${error.message}`);
+      // Fallback: Use zero vector
+      job.descriptionVector = new Array(768).fill(0);
+      await this.jobRepository.save(job);
+    }
   }
 }
 

@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { Application } from '../../applications/entities/application.entity';
 
-export type Platform = 'internshala' | 'linkedin';
+export type Platform = 'internshala' | 'linkedin' | 'other';
 
 @Entity('joblistings')
 export class JobListing {

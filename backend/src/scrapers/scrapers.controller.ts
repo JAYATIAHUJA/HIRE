@@ -1,6 +1,11 @@
 import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
 import { ScrapersService } from './scrapers.service';
-import { IsUUID, IsOptional, IsBoolean, IsNumber } from 'class-validator';
+import { IsUUID, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
+
+class ScrapeUniversalDto {
+  @IsUrl()
+  url: string;
+}
 
 class ScrapeForUserDto {
   @IsUUID()
@@ -42,10 +47,26 @@ export class ScrapersController {
   @Post('scrape-all')
   @HttpCode(HttpStatus.OK)
   async scrapeAll() {
-    const result = await this.scrapersService.scrapeAllJobs();
+    // Run in background, don't await
+    this.scrapersService.scrapeAllJobs().catch(err => {
+      console.error('Background scraping error:', err);
+    });
+    
     return {
-      message: 'Job scraping completed',
-      ...result,
+      message: 'Job scraping started in background. Please check back in a few minutes.',
+      status: 'started'
+    };
+  }
+
+  /**
+   * Universal experimental scraper
+   */
+  @Post('universal')
+  async scrapeUniversal(@Body() dto: ScrapeUniversalDto) {
+    const job = await this.scrapersService.scrapeUniversalJob(dto.url);
+    return {
+      message: 'Universal scraping completed',
+      job,
     };
   }
 
