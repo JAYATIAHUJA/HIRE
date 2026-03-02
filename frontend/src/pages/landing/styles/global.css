@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+@theme {
+  --color-hire-bg: #0B0B0F;
+  --color-hire-bg-elevated: #111116;
+  --color-hire-bg-subtle: #16161C;
+  --color-hire-surface: #1A1A22;
+  --color-hire-accent: #00FF94;
+  --color-hire-accent-dim: rgba(0, 255, 148, 0.10);
+  --color-hire-accent-glow: rgba(0, 255, 148, 0.05);
+  --color-hire-border: rgba(255, 255, 255, 0.06);
+  --color-hire-border-hover: rgba(255, 255, 255, 0.12);
+  --color-hire-text: #FFFFFF;
+  --color-hire-text-secondary: rgba(255, 255, 255, 0.55);
+  --color-hire-text-tertiary: rgba(255, 255, 255, 0.30);
+  --color-hire-text-muted: rgba(255, 255, 255, 0.12);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif;
+
+  --ease-premium: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  html {
+    scroll-behavior: auto; /* Lenis handles smooth scroll */
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    background: var(--color-hire-bg);
+    color: var(--color-hire-text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: var(--color-hire-accent);
+    color: var(--color-hire-bg);
+  }
+}
+
+/* Grain overlay */
+.hire-grain {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Container utility */
+.hire-container {
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: clamp(1rem, 4vw, 2rem);
+  padding-right: clamp(1rem, 4vw, 2rem);
+  width: 100%;
+}

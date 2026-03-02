@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Application, ApplicationStatus } from './entities/application.entity';
@@ -6,6 +7,7 @@ import { User } from '../users/entities/user.entity';
 import { JobListing } from '../jobs/entities/job-listing.entity';
 import { LlmService } from '../services/llm.service';
 import { SimpleAutomationService } from '../services/simple-automation.service';
+import { AdvancedAutomationService } from '../services/advanced-automation.service';
 import { AuditLogService } from '../services/audit-log.service';
 import { JobsService } from '../jobs/jobs.service';
 import { UsersService } from '../users/users.service';
@@ -15,7 +17,6 @@ import * as path from 'path';
 
 @Injectable()
 export class ApplicationsService {
-  private readonly logger = new Logger(ApplicationsService.name);
   private readonly resumesDir = path.join(process.cwd(), 'resumes');
   private readonly maxRetries = 3;
 
@@ -28,10 +29,13 @@ export class ApplicationsService {
     private jobRepository: Repository<JobListing>,
     private llmService: LlmService,
     private simpleAutomation: SimpleAutomationService,
+    private advancedAutomation: AdvancedAutomationService,
     private auditLogService: AuditLogService,
     private jobsService: JobsService,
     private usersService: UsersService,
+    @InjectPinoLogger(ApplicationsService.name) private readonly logger: PinoLogger,
   ) {
+    logger.setContext(ApplicationsService.name);
     // Ensure resumes directory exists
     if (!fs.existsSync(this.resumesDir)) {
       fs.mkdirSync(this.resumesDir, { recursive: true });
@@ -60,7 +64,7 @@ export class ApplicationsService {
     });
 
     if (existing) {
-      this.logger.log(`Application already exists for user ${userId} and job ${jobId}`);
+      this.logger.info(`Application already exists for user ${userId} and job ${jobId}`);
       return existing;
     }
 
@@ -79,8 +83,9 @@ export class ApplicationsService {
 
     // Asynchronously process the application (don't block response)
     this.processApplication(application.id, user, job, credentials).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Background processing failed for application ${application.id}: ${error.message}`,
+        `Background processing failed for application ${application.id}: ${errorMessage}`,
       );
     });
 
@@ -106,7 +111,7 @@ export class ApplicationsService {
       }
 
       // Step 1: Tailor resume
-      this.logger.log(`Tailoring resume for application ${applicationId}`);
+      this.logger.info(`Tailoring resume for application ${applicationId}`);
       let tailoredResume: string;
 
       try {
@@ -115,9 +120,10 @@ export class ApplicationsService {
           job.description,
           job.requirements || [],
         );
-        this.logger.log('✅ Resume tailored successfully');
+        this.logger.info('✅ Resume tailored successfully');
       } catch (error) {
-        this.logger.warn(`⚠️ LLM tailoring failed (${error.message}), using master resume`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`⚠️ LLM tailoring failed (${errorMessage}), using master resume`);
         tailoredResume = user.masterResumeText;
       }
 
@@ -135,7 +141,7 @@ export class ApplicationsService {
 
       // Step 2: Run Playwright automation
       if (!credentials?.email || !credentials?.password) {
-        this.logger.log('No credentials provided - marking as NeedsApproval for manual submission');
+        this.logger.info('No credentials provided - marking as NeedsApproval for manual submission');
         await this.transitionTo(application, 'NeedsApproval');
         await this.auditLogService.logApprovalRequested(application.id);
         return;
@@ -148,18 +154,32 @@ export class ApplicationsService {
         skills: user.skills || [],
       };
 
-      this.logger.log('🚀 Starting Playwright Automation...');
+      this.logger.info('🚀 Starting Playwright Automation...');
 
+      let result;
       try {
-        const result = await this.simpleAutomation.applyToInternshala(
-          job.url,
-          credentials,
-          userProfile,
-          tailoredResume,
-        );
+        if (job.platform === 'internshala') {
+          result = await this.simpleAutomation.applyToInternshala(
+            job.url,
+            credentials,
+            userProfile,
+            tailoredResume,
+          );
+        } else {
+           // Use Advanced Automation for everything else
+           this.logger.info(`Using Advanced Automation for platform: ${job.platform}`);
+           result = await this.advancedAutomation.applyToGenericJob(
+             job.url,
+             {
+               userProfile: user,
+               resumeText: tailoredResume,
+               resumePath: resumePath
+             }
+           );
+        }
 
         if (result.success) {
-          this.logger.log('✅ Application submitted successfully!');
+          this.logger.info('✅ Application submitted successfully!');
           application.previewScreenshotUrl = result.screenshotUrl;
           await this.transitionTo(application, 'Submitted');
           await this.auditLogService.logSubmitted(application.id, 'Playwright');
@@ -171,11 +191,10 @@ export class ApplicationsService {
           await this.auditLogService.logFailed(application.id, result.error || 'Automation failed');
         }
       } catch (error) {
-        this.logger.error(`Playwright error: ${error.message}`);
-        // Sanitize error message before storing for client exposure
-        const safeError = sanitizeErrorMessage(error, 'Application processing failed');
-        await this.transitionTo(application, 'Failed', safeError);
-        await this.auditLogService.logFailed(application.id, error.message);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Playwright error: ${errorMessage}`);
+        await this.transitionTo(application, 'Failed', errorMessage);
+        await this.auditLogService.logFailed(application.id, errorMessage);
       }
     } catch (error) {
       await this.handleError(applicationId, error);
@@ -189,25 +208,33 @@ export class ApplicationsService {
     });
   }
 
-  async findByUser(userId: string): Promise<Application[]> {
-    return this.applicationRepository.find({
+  async findByUser(userId: string, page: number = 1, limit: number = 10): Promise<{ data: Application[]; total: number }> {
+    const skip = (page - 1) * limit;
+    const [data, total] = await this.applicationRepository.findAndCount({
       where: { userId },
       relations: ['job', 'user'],
       order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
     });
+    return { data, total };
   }
 
-  async findByStatus(status: ApplicationStatus, userId?: string): Promise<Application[]> {
+  async findByStatus(status: ApplicationStatus, userId?: string, page: number = 1, limit: number = 10): Promise<{ data: Application[]; total: number }> {
     const where: any = { status };
     if (userId) {
       where.userId = userId;
     }
 
-    return this.applicationRepository.find({
+    const skip = (page - 1) * limit;
+    const [data, total] = await this.applicationRepository.findAndCount({
       where,
       relations: ['user', 'job'],
       order: { createdAt: 'DESC' },
+      skip,
+      take: limit,
     });
+    return { data, total };
   }
 
   async approveApplication(id: string, userId?: string): Promise<Application> {
@@ -322,12 +349,13 @@ export class ApplicationsService {
 
     await this.applicationRepository.save(application);
 
-    this.logger.log(`Application ${application.id}: ${oldStatus} → ${newStatus}`);
+    this.logger.info(`Application ${application.id}: ${oldStatus} → ${newStatus}`);
   }
 
   private async handleError(applicationId: string, error: any): Promise<void> {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     this.logger.error(
-      `Error processing application ${applicationId}: ${error.message}`,
+      `Error processing application ${applicationId}: ${errorMessage}`,
       error.stack,
     );
 
@@ -336,10 +364,14 @@ export class ApplicationsService {
     });
 
     if (!application) return;
+const errorMessage = error instanceof Error ? error.message : String(error);
 
-    // Sanitize error message before storing for client exposure
-    const safeError = sanitizeErrorMessage(error, 'Application processing failed');
-    await this.transitionTo(application, 'Failed', safeError);
-    await this.auditLogService.logFailed(applicationId, error.message);
+// Sanitize error message before storing for client exposure
+const safeError = sanitizeErrorMessage(error, 'Application processing failed');
+
+await this.transitionTo(application, 'Failed', safeError);
+
+// Log real error internally (not sanitized)
+await this.auditLogService.logFailed(applicationId, errorMessage);
   }
 }

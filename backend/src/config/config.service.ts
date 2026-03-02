@@ -1,12 +1,11 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 
 /**
  * Configuration validation and management service
  */
 @Injectable()
 export class ConfigService implements OnModuleInit {
-  private readonly logger = new Logger(ConfigService.name);
-
   // Database
   readonly DATABASE_URL: string;
 
@@ -37,7 +36,8 @@ export class ConfigService implements OnModuleInit {
   readonly INTERNSHALA_EMAIL?: string;
   readonly INTERNSHALA_PASSWORD?: string;
 
-  constructor() {
+  constructor(@InjectPinoLogger(ConfigService.name) private readonly logger: PinoLogger) {
+    logger.setContext(ConfigService.name);
     // Load and validate configuration
     this.DATABASE_URL = this.getEnv('DATABASE_URL', true);
     
@@ -129,14 +129,14 @@ export class ConfigService implements OnModuleInit {
       throw new Error('Invalid configuration');
     }
 
-    this.logger.log('✓ Configuration validated successfully');
+    this.logger.info('✓ Configuration validated successfully');
   }
 
   /**
    * Perform health checks on external services
    */
   private async healthChecks(): Promise<void> {
-    this.logger.log('Performing startup health checks...');
+    this.logger.info('Performing startup health checks...');
 
     // Check Skyvern connectivity (if enabled)
     if (this.SKYVERN_ENABLED) {
@@ -146,7 +146,7 @@ export class ConfigService implements OnModuleInit {
         });
 
         if (response.ok) {
-          this.logger.log(`✓ Skyvern service is reachable at ${this.SKYVERN_BASE_URL}`);
+          this.logger.info(`✓ Skyvern service is reachable at ${this.SKYVERN_BASE_URL}`);
         } else {
           this.logger.warn(
             `⚠ Skyvern service returned non-OK status: ${response.status}`,
@@ -159,7 +159,7 @@ export class ConfigService implements OnModuleInit {
         this.logger.warn('  Applications may fail if Skyvern is required');
       }
     } else {
-      this.logger.log('ℹ Skyvern is disabled (SKYVERN_ENABLED=false)');
+      this.logger.info('ℹ Skyvern is disabled (SKYVERN_ENABLED=false)');
     }
 
     // Log configuration summary
@@ -170,22 +170,22 @@ export class ConfigService implements OnModuleInit {
    * Log configuration summary (without sensitive data)
    */
   private logConfigSummary(): void {
-    this.logger.log('Configuration Summary:');
-    this.logger.log(`  Environment: ${this.NODE_ENV}`);
-    this.logger.log(`  Port: ${this.PORT}`);
-    this.logger.log(`  Log Level: ${this.LOG_LEVEL}`);
-    this.logger.log(`  LLM Provider: ${this.LLM_PROVIDER}`);
-    this.logger.log(`  Skyvern Mode: ${this.SKYVERN_MODE}`);
-    this.logger.log(`  Skyvern URL: ${this.SKYVERN_BASE_URL}`);
-    this.logger.log(`  Skyvern Enabled: ${this.SKYVERN_ENABLED}`);
-    this.logger.log(`  Embedding Model: ${this.EMBEDDING_MODEL}`);
+    this.logger.info('Configuration Summary:');
+    this.logger.info(`  Environment: ${this.NODE_ENV}`);
+    this.logger.info(`  Port: ${this.PORT}`);
+    this.logger.info(`  Log Level: ${this.LOG_LEVEL}`);
+    this.logger.info(`  LLM Provider: ${this.LLM_PROVIDER}`);
+    this.logger.info(`  Skyvern Mode: ${this.SKYVERN_MODE}`);
+    this.logger.info(`  Skyvern URL: ${this.SKYVERN_BASE_URL}`);
+    this.logger.info(`  Skyvern Enabled: ${this.SKYVERN_ENABLED}`);
+    this.logger.info(`  Embedding Model: ${this.EMBEDDING_MODEL}`);
     
     if (this.LINKEDIN_EMAIL) {
-      this.logger.log(`  LinkedIn Login: Configured`);
+      this.logger.info(`  LinkedIn Login: Configured`);
     }
     
     if (this.INTERNSHALA_EMAIL) {
-      this.logger.log(`  Internshala Login: Configured`);
+      this.logger.info(`  Internshala Login: Configured`);
     }
   }
 

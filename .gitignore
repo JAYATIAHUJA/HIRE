@@ -39,8 +39,8 @@ tmp/
 temp/
 
 # Generated files
-resumes/*.pdf
-screenshots/*.png
+**/resumes/*
+**/screenshots/*
 uploads/
 sessions/
 

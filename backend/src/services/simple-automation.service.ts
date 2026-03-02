@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { chromium, Browser, Page, BrowserContext, Dialog } from 'playwright';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
+import { chromium, Browser, Page, Dialog } from 'playwright';
 import { LlmService } from './llm.service';
 import { sanitizeErrorMessage } from '../common/utils/error-sanitizer.util';
 import * as path from 'path';
@@ -36,11 +37,14 @@ export interface UserProfile {
 
 @Injectable()
 export class SimpleAutomationService {
-    private readonly logger = new Logger(SimpleAutomationService.name);
     private readonly screenshotDir = path.join(process.cwd(), 'screenshots');
     private notificationCallback?: (message: string, type: 'info' | 'warning' | 'error') => void;
 
-    constructor(private llmService: LlmService) {
+    constructor(
+        private llmService: LlmService,
+        @InjectPinoLogger(SimpleAutomationService.name) private readonly logger: PinoLogger,
+    ) {
+        logger.setContext(SimpleAutomationService.name);
         // Ensure screenshot directory exists
         if (!fs.existsSync(this.screenshotDir)) {
             fs.mkdirSync(this.screenshotDir, { recursive: true });
@@ -58,7 +62,7 @@ export class SimpleAutomationService {
      * Send notification to user
      */
     private notify(message: string, type: 'info' | 'warning' | 'error' = 'info') {
-        this.logger.log(`🔔 [${type.toUpperCase()}] ${message}`);
+        this.logger.info(`🔔 [${type.toUpperCase()}] ${message}`);
         if (this.notificationCallback) {
             this.notificationCallback(message, type);
         }
@@ -81,7 +85,7 @@ export class SimpleAutomationService {
         resumeText: string,
         resumeFilePath?: string,
     ): Promise<AutomationResult> {
-        this.logger.log(`🚀 Starting Smart Automation for ${jobUrl}`);
+        this.logger.info(`🚀 Starting Smart Automation for ${jobUrl}`);
         this.notify('Starting job application automation...', 'info');
 
         if (!credentials?.email || !credentials?.password) {
@@ -108,7 +112,7 @@ export class SimpleAutomationService {
 
             // Setup dialog handler for alerts/popups
             page.on('dialog', async (dialog: Dialog) => {
-                this.logger.log(`📢 Dialog detected: ${dialog.type()} - ${dialog.message()}`);
+                this.logger.info(`📢 Dialog detected: ${dialog.type()} - ${dialog.message()}`);
                 this.notify(`Popup: ${dialog.message()}`, 'warning');
 
                 if (dialog.type() === 'alert') {
@@ -129,7 +133,7 @@ export class SimpleAutomationService {
             }
 
             // Step 2: Navigate to job
-            this.logger.log(`📍 Navigating to job: ${jobUrl}`);
+            this.logger.info(`📍 Navigating to job: ${jobUrl}`);
             await page.goto(jobUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await page.waitForTimeout(2000);
 
@@ -152,8 +156,9 @@ export class SimpleAutomationService {
             return { success: true, screenshotUrl: screenshotPath };
 
         } catch (error) {
-            this.logger.error(`❌ Automation failed: ${error.message}`);
-            this.notify(`Error: ${error.message}`, 'error');
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`❌ Automation failed: ${errorMessage}`);
+            this.notify(`Error: ${errorMessage}`, 'error');
 
             if (page) {
                 await this.takeScreenshot(page, 'error');
@@ -164,7 +169,7 @@ export class SimpleAutomationService {
 
             return {
                 success: false,
-                error: safeError,
+                error: errorMessage,
                 requiresUserAction: true,
                 actionRequired: 'Please check the browser and complete manually if needed',
             };
@@ -182,7 +187,7 @@ export class SimpleAutomationService {
      */
     private async handleLogin(page: Page, credentials: { email?: string; password?: string }): Promise<AutomationResult> {
         try {
-            this.logger.log('🔐 Checking login status...');
+            this.logger.info('🔐 Checking login status...');
             await page.goto('https://internshala.com', { waitUntil: 'domcontentloaded' });
             await page.waitForTimeout(2000);
 
@@ -194,11 +199,11 @@ export class SimpleAutomationService {
             });
 
             if (isLoggedIn) {
-                this.logger.log('✅ Already logged in');
+                this.logger.info('✅ Already logged in');
                 return { success: true };
             }
 
-            this.logger.log('🔑 Logging in...');
+            this.logger.info('🔑 Logging in...');
             this.notify('Logging into Internshala...', 'info');
 
             await page.goto('https://internshala.com/login/user', { waitUntil: 'domcontentloaded' });
@@ -234,14 +239,13 @@ export class SimpleAutomationService {
                 };
             }
 
-            this.logger.log('✅ Login successful');
+            this.logger.info('✅ Login successful');
             return { success: true };
 
         } catch (error) {
-            this.notify(`Login error: ${error.message}`, 'error');
-            // Sanitize error message for client exposure
-            const safeError = sanitizeErrorMessage(error, 'Login failed');
-            return { success: false, error: safeError };
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.notify(`Login error: ${errorMessage}`, 'error');
+            return { success: false, error: `Login failed: ${errorMessage}` };
         }
     }
 
@@ -250,7 +254,7 @@ export class SimpleAutomationService {
      */
     private async clickApplyButton(page: Page): Promise<AutomationResult> {
         try {
-            this.logger.log('🖱️ Looking for Apply button...');
+            this.logger.info('🖱️ Looking for Apply button...');
 
             // Try multiple selectors for Apply button
             const applySelectors = [
@@ -266,7 +270,7 @@ export class SimpleAutomationService {
             for (const selector of applySelectors) {
                 const button = await page.$(selector);
                 if (button && await button.isVisible()) {
-                    this.logger.log(`Found Apply button: ${selector}`);
+                    this.logger.info(`Found Apply button: ${selector}`);
                     await button.click();
                     await page.waitForTimeout(2000);
                     return { success: true };
@@ -292,9 +296,15 @@ export class SimpleAutomationService {
             };
 
         } catch (error) {
-            // Sanitize error message for client exposure
-            const safeError = sanitizeErrorMessage(error, 'Failed to click Apply button');
-            return { success: false, error: safeError };
+           const errorMessage = error instanceof Error ? error.message : String(error);
+
+     // (Optional) log internally if you have a logger
+     this.logger?.error?.(`Apply button error: ${errorMessage}`);
+
+     // Sanitize error message for client exposure
+     const safeError = sanitizeErrorMessage(error, 'Failed to click Apply button');
+
+    return { success: false, error: safeError };
         }
     }
 
@@ -310,7 +320,7 @@ export class SimpleAutomationService {
         const maxPages = 5; // Maximum form pages to handle
 
         for (let pageNum = 0; pageNum < maxPages; pageNum++) {
-            this.logger.log(`📝 Processing form page ${pageNum + 1}...`);
+            this.logger.info(`📝 Processing form page ${pageNum + 1}...`);
             await page.waitForTimeout(2000);
 
             // Handle any popups/modals
@@ -318,7 +328,7 @@ export class SimpleAutomationService {
 
             // Detect all form fields
             const fields = await this.detectFormFields(page);
-            this.logger.log(`Found ${fields.length} form fields`);
+            this.logger.info(`Found ${fields.length} form fields`);
 
             if (fields.length > 0) {
                 // Get AI-generated answers for complex fields
@@ -338,7 +348,7 @@ export class SimpleAutomationService {
             const nextBtn = await page.$('button:has-text("Next"), button:has-text("Continue"), #next');
 
             if (submitBtn && await submitBtn.isVisible()) {
-                this.logger.log('📤 Found Submit button - clicking...');
+                this.logger.info('📤 Found Submit button - clicking...');
                 await page.waitForTimeout(2000);
 
                 // Highlight submit button
@@ -363,11 +373,11 @@ export class SimpleAutomationService {
                     return { success: true };
                 }
             } else if (nextBtn && await nextBtn.isVisible()) {
-                this.logger.log('➡️ Clicking Next...');
+                this.logger.info('➡️ Clicking Next...');
                 await nextBtn.click();
                 await page.waitForTimeout(2000);
             } else {
-                this.logger.log('No more form navigation buttons found');
+                this.logger.info('No more form navigation buttons found');
                 break;
             }
         }
@@ -470,7 +480,7 @@ export class SimpleAutomationService {
         }
 
         try {
-            this.logger.log(`🤖 Generating AI answers for ${needsAI.length} fields...`);
+            this.logger.info(`🤖 Generating AI answers for ${needsAI.length} fields...`);
             this.notify('Generating personalized answers with AI...', 'info');
 
             const answers = await this.llmService.answerApplicationQuestions(
@@ -481,7 +491,8 @@ export class SimpleAutomationService {
 
             return answers;
         } catch (error) {
-            this.logger.error(`AI answer generation failed: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`AI answer generation failed: ${errorMessage}`);
             return {};
         }
     }
@@ -526,7 +537,7 @@ export class SimpleAutomationService {
 
             if (!value) return;
 
-            this.logger.log(`  📝 Filling: ${field.label} = ${value.substring(0, 30)}...`);
+            this.logger.info(`  📝 Filling: ${field.label} = ${value.substring(0, 30)}...`);
 
             if (field.type === 'select') {
                 await page.selectOption(selector, { label: value }).catch(() => {
@@ -546,7 +557,8 @@ export class SimpleAutomationService {
             await page.waitForTimeout(200);
 
         } catch (error) {
-            this.logger.warn(`Could not fill field ${field.label}: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`Could not fill field ${field.label}: ${errorMessage}`);
         }
     }
 
@@ -563,14 +575,15 @@ export class SimpleAutomationService {
                 if (await input.isVisible()) {
                     const accept = await input.getAttribute('accept') || '';
                     if (accept.includes('pdf') || accept.includes('doc') || !accept) {
-                        this.logger.log('📎 Uploading resume file...');
+                        this.logger.info('📎 Uploading resume file...');
                         await input.setInputFiles(resumeFilePath);
                         await page.waitForTimeout(1000);
                     }
                 }
             }
         } catch (error) {
-            this.logger.warn(`File upload failed: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.warn(`File upload failed: ${errorMessage}`);
         }
     }
 
@@ -613,7 +626,7 @@ export class SimpleAutomationService {
         const filePath = path.join(this.screenshotDir, fileName);
 
         await page.screenshot({ path: filePath, fullPage: false });
-        this.logger.log(`📸 Screenshot saved: ${fileName}`);
+        this.logger.info(`📸 Screenshot saved: ${fileName}`);
 
         return `/screenshots/${fileName}`;
     }
