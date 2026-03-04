@@ -57,13 +57,11 @@ export class RssScraper {
         const pubDateStr = pubDateMatch ? pubDateMatch[1] : null;
 
         // Clean up title (often "Role: Company" or "Company: Role")
-        let company = 'Unknown Company';
         if (title.includes(':')) {
-           const parts = title.split(':');
            // Heuristic: usually "Company: Role" or "Role at Company" ??
            // WWR: "Role: Company"
            // Remotive: "Role at Company"
-           if (sourceName === 'weworkremotely') { // Format is often "Company: Title" or vice versa, but WWR title tag is actually "Business Development Manager: We Work Remotely"
+            if (sourceName === 'weworkremotely') { // Format is often "Company: Title" or vice versa, but WWR title tag is actually "Business Development Manager: We Work Remotely"
                // WWR actual format in RSS: <title>Job Title: Company Name</title>
                const split = title.split(':');
                if (split.length >= 2) {

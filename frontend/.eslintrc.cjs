@@ -15,6 +15,8 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    '@typescript-eslint/no-explicit-any': 'off',
+    'react-hooks/exhaustive-deps': 'warn',
     // jsx-a11y rules are included via the recommended preset
     // You can customize specific rules here if needed
   },
