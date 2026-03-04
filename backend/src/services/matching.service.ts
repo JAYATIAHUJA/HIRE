@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
 import { JobListing } from '../jobs/entities/job-listing.entity';
 import { LlmService } from './llm.service';
+import { ConfigService } from '../config/config.service';
 
 @Injectable()
 export class MatchingService {
@@ -15,6 +16,7 @@ export class MatchingService {
     @InjectRepository(JobListing)
     private jobRepository: Repository<JobListing>,
     private llmService: LlmService,
+    private configService: ConfigService,
   ) {}
 
   async computeMatchScore(userId: string, jobId: string): Promise<number> {
@@ -102,7 +104,7 @@ export class MatchingService {
     } catch (error) {
       console.warn(`Failed to generate profile embedding for user ${userId}: ${error.message}`);
       // Fallback: Use zero vector so feed can load
-      user.profileVector = new Array(768).fill(0);
+      user.profileVector = new Array(this.configService.EMBEDDING_DIMENSION).fill(0);
       await this.userRepository.save(user);
     }
   }
@@ -123,7 +125,7 @@ export class MatchingService {
     } catch (error) {
       console.warn(`Failed to generate job embedding for job ${jobId}: ${error.message}`);
       // Fallback: Use zero vector
-      job.descriptionVector = new Array(768).fill(0);
+      job.descriptionVector = new Array(this.configService.EMBEDDING_DIMENSION).fill(0);
       await this.jobRepository.save(job);
     }
   }
