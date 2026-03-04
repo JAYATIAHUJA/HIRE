@@ -111,17 +111,38 @@ export class ApplicationsController {
    * Get all applications for a user
    */
   @Get()
-  async getAll(@Query('userId') userId?: string, @Query('status') status?: string) {
+  async getAll(
+    @Query('userId') userId?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = parseInt(page as string, 10);
+    const parsedLimit = parseInt(limit as string, 10);
+
+    const pageNumber = isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+    const limitNumber = isNaN(parsedLimit) ? 10 : Math.max(1, parsedLimit);
+    const validLimit = limitNumber > 100 ? 100 : limitNumber;
+
+    let result: { data: any[]; total: number } = { data: [], total: 0 };
+
     if (status && userId) {
-      return this.applicationsService.findByStatus(status as any, userId);
+      result = await this.applicationsService.findByStatus(status as any, userId, pageNumber, validLimit);
     } else if (status) {
-      return this.applicationsService.findByStatus(status as any);
+      result = await this.applicationsService.findByStatus(status as any, undefined, pageNumber, validLimit);
     } else if (userId) {
-      return this.applicationsService.findByUser(userId);
+      result = await this.applicationsService.findByUser(userId, pageNumber, validLimit);
     }
 
-    // Return empty array if no filters
-    return [];
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: pageNumber,
+        limit: validLimit,
+        totalPages: Math.ceil(result.total / validLimit) || 0,
+      }
+    };
   }
 
   /**

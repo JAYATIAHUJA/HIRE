@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { InternshalaScraperV2 } from './internshala-v2.scraper';
@@ -19,8 +20,6 @@ export interface ScrapeResult {
 
 @Injectable()
 export class ScrapersService {
-  private readonly logger = new Logger(ScrapersService.name);
-
   constructor(
     private internshalaScraperV2: InternshalaScraperV2,
     private linkedInScraper: LinkedInScraper,
@@ -31,7 +30,10 @@ export class ScrapersService {
     private jobRepository: Repository<JobListing>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) { }
+    @InjectPinoLogger(ScrapersService.name) private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(ScrapersService.name);
+  }
 
   /**
    * Full scrape: clears old jobs and scrapes fresh based on user skills
@@ -43,13 +45,13 @@ export class ScrapersService {
     const startTime = Date.now();
     const maxJobs = options.maxJobs || 300;
 
-    this.logger.log(`🚀 Starting personalized scrape for user ${userId}`);
+    this.logger.info(`🚀 Starting personalized scrape for user ${userId}`);
 
     // Get user's skills
     const user = await this.userRepository.findOne({ where: { id: userId } });
     const userSkills = user?.skills || [];
 
-    this.logger.log(`📋 User skills: ${userSkills.join(', ') || 'None specified'}`);
+    this.logger.info(`📋 User skills: ${userSkills.join(', ') || 'None specified'}`);
 
     // Optionally clear old jobs
     let removedCount = 0;
@@ -61,7 +63,7 @@ export class ScrapersService {
     const internshalaJobs = await this.internshalaScraperV2.scrapeForUser(userSkills, maxJobs);
     let internshalaCount = 0;
 
-    this.logger.log(`📥 Processing ${internshalaJobs.length} Internshala jobs...`);
+    this.logger.info(`📥 Processing ${internshalaJobs.length} Internshala jobs...`);
 
     for (const job of internshalaJobs) {
       try {
@@ -70,19 +72,20 @@ export class ScrapersService {
 
         // Progress log every 20 jobs
         if (internshalaCount % 20 === 0) {
-          this.logger.log(`  ✓ Saved ${internshalaCount}/${internshalaJobs.length} jobs`);
+          this.logger.info(`  ✓ Saved ${internshalaCount}/${internshalaJobs.length} jobs`);
         }
 
         // Rate limiting to avoid LLM API limits
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        this.logger.error(`Error saving job: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error saving job: ${errorMessage}`);
       }
     }
 
     const duration = Math.round((Date.now() - startTime) / 1000);
 
-    this.logger.log(`✅ Scraping complete in ${duration}s: ${internshalaCount} jobs saved, ${removedCount} old jobs removed`);
+    this.logger.info(`✅ Scraping complete in ${duration}s: ${internshalaCount} jobs saved, ${removedCount} old jobs removed`);
 
     return {
       internshala: internshalaCount,
@@ -98,7 +101,7 @@ export class ScrapersService {
   async scrapeAllJobs(): Promise<ScrapeResult> {
     const startTime = Date.now();
 
-    this.logger.log('🚀 Starting job scraping for all platforms...');
+    this.logger.info('🚀 Starting job scraping for all platforms...');
 
     // Clear jobs older than 7 days
     const removedCount = await this.clearStaleJobs(7);
@@ -113,7 +116,8 @@ export class ScrapersService {
         await this.jobsService.saveScrapedJob('internshala', job);
         internshalaCount++;
       } catch (error) {
-        this.logger.error(`Error saving Internshala job: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error saving Internshala job: ${errorMessage}`);
       }
     }
 
@@ -128,7 +132,8 @@ export class ScrapersService {
         linkedinCount++;
         await new Promise(resolve => setTimeout(resolve, 500));
       } catch (error) {
-        this.logger.error(`Error saving LinkedIn job: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.logger.error(`Error saving LinkedIn job: ${errorMessage}`);
       }
     }
 
@@ -153,7 +158,7 @@ export class ScrapersService {
 
     const duration = Math.round((Date.now() - startTime) / 1000);
 
-    this.logger.log(`✅ Scraping complete in ${duration}s: ${internshalaCount} Internshala, ${linkedinCount} LinkedIn, ${rssCount} RSS, ${removedCount} removed`);
+    this.logger.info(`✅ Scraping complete in ${duration}s: ${internshalaCount} Internshala, ${linkedinCount} LinkedIn, ${removedCount} removed`);
 
     return {
       internshala: internshalaCount,
@@ -168,14 +173,14 @@ export class ScrapersService {
    * Clear all old jobs (complete refresh)
    */
   async clearOldJobs(): Promise<number> {
-    this.logger.log('🗑️ Clearing all old Internshala jobs...');
+    this.logger.info('🗑️ Clearing all old Internshala jobs...');
 
     const result = await this.jobRepository.delete({
       platform: 'internshala' as any,
     });
 
     const count = result.affected || 0;
-    this.logger.log(`  Removed ${count} old Internshala jobs`);
+    this.logger.info(`  Removed ${count} old Internshala jobs`);
     return count;
   }
 
@@ -186,14 +191,14 @@ export class ScrapersService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
 
-    this.logger.log(`🗑️ Clearing jobs older than ${days} days (before ${cutoffDate.toISOString()})...`);
+    this.logger.info(`🗑️ Clearing jobs older than ${days} days (before ${cutoffDate.toISOString()})...`);
 
     const result = await this.jobRepository.delete({
       createdAt: LessThan(cutoffDate),
     });
 
     const count = result.affected || 0;
-    this.logger.log(`  Removed ${count} stale jobs`);
+    this.logger.info(`  Removed ${count} stale jobs`);
     return count;
   }
 

@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { chromium, Browser, Page } from 'playwright';
 
 export interface ScrapedJob {
@@ -23,8 +24,11 @@ export interface ScrapeOptions {
 
 @Injectable()
 export class InternshalaScraperV2 {
-  private readonly logger = new Logger('InternshalaScraperV2');
   private browser: Browser | null = null;
+
+  constructor(@InjectPinoLogger('InternshalaScraperV2') private readonly logger: PinoLogger) {
+    logger.setContext('InternshalaScraperV2');
+  }
 
   // Category mapping for common skills
   private readonly skillToCategory: Record<string, string> = {
@@ -139,7 +143,7 @@ export class InternshalaScraperV2 {
    * Main scraping function with skill-based filtering
    */
   async scrapeJobs(maxJobs: number = 200, options: ScrapeOptions = {}): Promise<ScrapedJob[]> {
-    this.logger.log('🚀 Starting Internshala scraping (V2 - Enhanced)...');
+    this.logger.info('🚀 Starting Internshala scraping (V2 - Enhanced)...');
 
     const allJobs = new Map<string, ScrapedJob>(); // Use Map for deduplication
 
@@ -164,14 +168,14 @@ export class InternshalaScraperV2 {
         includeRemote: true,
       });
 
-      this.logger.log(`📋 Will search ${searchUrls.length} category pages`);
+      this.logger.info(`📋 Will search ${searchUrls.length} category pages`);
 
       // Scrape each category URL
       for (const url of searchUrls) {
         if (allJobs.size >= maxJobs) break;
 
         try {
-          this.logger.log(`🌐 Scraping: ${url}`);
+          this.logger.info(`🌐 Scraping: ${url}`);
           const jobs = await this.scrapeFromUrl(page, url, maxJobs - allJobs.size);
 
           // Add to Map (automatically handles duplicates by externalId)
@@ -181,20 +185,22 @@ export class InternshalaScraperV2 {
             }
           }
 
-          this.logger.log(`✓ Total unique jobs so far: ${allJobs.size}`);
+          this.logger.info(`✓ Total unique jobs so far: ${allJobs.size}`);
 
           // Small delay between pages
           await page.waitForTimeout(1000);
         } catch (error) {
-          this.logger.error(`Error scraping ${url}: ${error.message}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Error scraping ${url}: ${errorMessage}`);
         }
       }
 
-      this.logger.log(`✅ Scraped ${allJobs.size} unique jobs from Internshala`);
+      this.logger.info(`✅ Scraped ${allJobs.size} unique jobs from Internshala`);
       return Array.from(allJobs.values());
 
     } catch (error) {
-      this.logger.error(`❌ Error scraping Internshala: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`❌ Error scraping Internshala: ${errorMessage}`);
       return [];
     } finally {
       if (this.browser) {
@@ -220,7 +226,7 @@ export class InternshalaScraperV2 {
       // Find all job cards currently on page
       const jobCards = await page.$$('.individual_internship, .individual_internship_details, .internship_meta');
 
-      this.logger.log(`  Found ${jobCards.length} job cards on page`);
+      this.logger.info(`  Found ${jobCards.length} job cards on page`);
 
       // Scrape new job cards
       for (let i = jobs.length; i < Math.min(jobCards.length, maxJobs); i++) {
@@ -361,7 +367,7 @@ export class InternshalaScraperV2 {
    * Scrape with user skills context
    */
   async scrapeForUser(userSkills: string[], maxJobs: number = 300): Promise<ScrapedJob[]> {
-    this.logger.log(`🎯 Scraping for user with skills: ${userSkills.join(', ')}`);
+    this.logger.info(`🎯 Scraping for user with skills: ${userSkills.join(', ')}`);
 
     return this.scrapeJobs(maxJobs, {
       skills: userSkills,

@@ -1,6 +1,5 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import LandingPage from './pages/LandingPage';
+import LandingPage from './pages/landing/LandingPage';
 import FeedPage from './pages/FeedPage';
 import ApplicationPreviewPage from './pages/ApplicationPreviewPage';
 import ApplicationHistoryPage from './pages/ApplicationHistoryPage';
@@ -16,6 +15,6 @@ function App() {
       <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
     </Routes>
   );
-}
+}   
 
 export default App;
