@@ -97,6 +97,15 @@ export class UniversalScraper {
   private normalizeUrl(url: string): string {
     try {
         const urlObj = new URL(url);
+
+        // precise Normalization for Indeed
+        if (urlObj.hostname.includes('indeed')) {
+            const vjk = urlObj.searchParams.get('vjk') || urlObj.searchParams.get('jk');
+            if (vjk) {
+                return `https://${urlObj.hostname}/viewjob?jk=${vjk}`;
+            }
+        }
+
         // Normalize LinkedIn URLs
         if (urlObj.hostname.includes('linkedin.com')) {
             // Check for currentJobId param
@@ -145,7 +154,7 @@ export class UniversalScraper {
           externalId: jobPosting.identifier?.value || url,
           title: jobPosting.title,
           company: typeof jobPosting.hiringOrganization === 'object' ? jobPosting.hiringOrganization.name : jobPosting.hiringOrganization,
-          description: jobPosting.description, // Often contains HTML, might need cleaning
+          description: this.cleanHtml(jobPosting.description),
           url: url,
           location: this.parseSchemaLocation(jobPosting.jobLocation),
           employmentType: jobPosting.employmentType,
@@ -157,6 +166,20 @@ export class UniversalScraper {
       this.logger.warn(`Error extracting Schema.org: ${e.message}`);
     }
     return null;
+  }
+
+  private cleanHtml(html: string): string {
+    if (!html) return '';
+    return html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\n\s*\n/g, '\n\n') // Collapse multiple newlines
+        .trim();
   }
 
   private parseSchemaLocation(location: any): string | undefined {

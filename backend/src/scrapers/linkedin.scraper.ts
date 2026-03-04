@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { chromium, Browser, Page } from 'playwright';
 
 export interface ScrapedJob {
@@ -12,11 +13,14 @@ export interface ScrapedJob {
 
 @Injectable()
 export class LinkedInScraper {
-  private readonly logger = new Logger(LinkedInScraper.name);
   private browser: Browser | null = null;
 
+  constructor(@InjectPinoLogger(LinkedInScraper.name) private readonly logger: PinoLogger) {
+    logger.setContext(LinkedInScraper.name);
+  }
+
   async scrapeJobs(maxJobs: number = 50): Promise<ScrapedJob[]> {
-    this.logger.log('Starting LinkedIn scraping...');
+    this.logger.info('Starting LinkedIn scraping...');
 
     try {
       this.browser = await chromium.launch({
@@ -53,7 +57,7 @@ export class LinkedInScraper {
       const jobs: ScrapedJob[] = [];
       const jobCards = await page.$$('.job-search-card');
 
-      this.logger.log(`Found ${jobCards.length} job cards`);
+      this.logger.info(`Found ${jobCards.length} job cards`);
 
       for (let i = 0; i < Math.min(jobCards.length, maxJobs); i++) {
         try {
@@ -62,14 +66,16 @@ export class LinkedInScraper {
             jobs.push(job);
           }
         } catch (error) {
-          this.logger.error(`Error scraping job ${i}: ${error.message}`);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          this.logger.error(`Error scraping job ${i}: ${errorMessage}`);
         }
       }
 
-      this.logger.log(`Scraped ${jobs.length} jobs from LinkedIn`);
+      this.logger.info(`Scraped ${jobs.length} jobs from LinkedIn`);
       return jobs;
     } catch (error) {
-      this.logger.error(`Error scraping LinkedIn: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error scraping LinkedIn: ${errorMessage}`);
       return [];
     } finally {
       if (this.browser) {
@@ -94,7 +100,8 @@ export class LinkedInScraper {
 
       await page.waitForTimeout(3000);
     } catch (error) {
-      this.logger.error(`Login error: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Login error: ${errorMessage}`);
     }
   }
 
@@ -141,7 +148,8 @@ export class LinkedInScraper {
         location,
       };
     } catch (error) {
-      this.logger.error(`Error scraping job card: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Error scraping job card: ${errorMessage}`);
       return null;
     }
   }

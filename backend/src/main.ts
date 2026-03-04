@@ -1,18 +1,22 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import { Logger } from 'nestjs-pino';
 import { join } from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ logger: false }),
+    { bufferLogs: true },
+  );
+
+  app.useLogger(app.get(Logger));
+  const logger = app.get(Logger);
 
   try {
-    const app = await NestFactory.create<NestFastifyApplication>(
-      AppModule,
-      new FastifyAdapter({ logger: true }),
-    );
 
     app.enableCors({
       origin: '*', // Allow all origins for testing
