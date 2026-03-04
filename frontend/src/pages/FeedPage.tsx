@@ -122,8 +122,10 @@ function FeedPage() {
 
     try {
       setApplying(jobId);
-      const email = localStorage.getItem('internshala_email') || undefined;
-      const password = localStorage.getItem('internshala_password') || undefined;
+      // Use sessionStorage for credentials (more secure than localStorage)
+      // Credentials are cleared when the tab/browser is closed
+      const email = sessionStorage.getItem('internshala_email') || undefined;
+      const password = sessionStorage.getItem('internshala_password') || undefined;
       const credentials = email && password ? { email, password } : undefined;
 
       const result = await api.swipeRight(userId, jobId, credentials);

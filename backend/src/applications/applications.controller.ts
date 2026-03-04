@@ -18,6 +18,9 @@ class SwipeRightDto {
 
   @IsUUID()
   jobId: string;
+
+  @IsOptional()
+  credentials?: { email?: string; password?: string };
 }
 
 class ApproveApplicationDto {
@@ -51,6 +54,7 @@ export class ApplicationsController {
     const application = await this.applicationsService.createApplication(
       dto.userId,
       dto.jobId,
+      dto.credentials,
     );
 
     return {

@@ -20,6 +20,10 @@ function OnboardingPage() {
     const [skills, setSkills] = useState('');
     const [resumeText, setResumeText] = useState('');
 
+    // Login credentials state (stored in memory only, not localStorage)
+    const [internshalaEmail, setInternshalaEmail] = useState('');
+    const [internshalaPassword, setInternshalaPassword] = useState('');
+
     // Check if user already exists
     useEffect(() => {
         const storedUserId = localStorage.getItem('userId');
@@ -108,8 +112,13 @@ function OnboardingPage() {
 
     // Complete login and move to scraping
     const handleLoginComplete = async () => {
-        // Just mark login as complete - credentials are already saved in localStorage
-        localStorage.setItem('hasInternshalaLogin', 'true');
+        // Store credentials temporarily in sessionStorage (cleared when tab closes)
+        // This is more secure than localStorage as it's not persistent and scoped to the tab
+        if (internshalaEmail && internshalaPassword) {
+            sessionStorage.setItem('internshala_email', internshalaEmail);
+            sessionStorage.setItem('internshala_password', internshalaPassword);
+        }
+        localStorage.setItem('hasInternshalaLogin', internshalaEmail && internshalaPassword ? 'true' : 'false');
         setStep('scraping');
         setLoading(true);
 
@@ -279,8 +288,8 @@ JavaScript, React, Node.js, Python, SQL`}
                                     type="email"
                                     id="internshala-email"
                                     placeholder="your-email@example.com"
-                                    onChange={(e) => localStorage.setItem('internshala_email', e.target.value)}
-                                    defaultValue={localStorage.getItem('internshala_email') || ''}
+                                    value={internshalaEmail}
+                                    onChange={(e) => setInternshalaEmail(e.target.value)}
                                 />
                             </div>
 
@@ -290,8 +299,8 @@ JavaScript, React, Node.js, Python, SQL`}
                                     type="password"
                                     id="internshala-password"
                                     placeholder="Your password"
-                                    onChange={(e) => localStorage.setItem('internshala_password', e.target.value)}
-                                    defaultValue={localStorage.getItem('internshala_password') || ''}
+                                    value={internshalaPassword}
+                                    onChange={(e) => setInternshalaPassword(e.target.value)}
                                 />
                             </div>
 
