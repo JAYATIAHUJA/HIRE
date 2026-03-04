@@ -1,4 +1,5 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -30,10 +31,10 @@ export interface ParsedResume {
 
 @Injectable()
 export class ResumeParserService {
-    private readonly logger = new Logger(ResumeParserService.name);
     private readonly uploadDir = path.join(process.cwd(), 'uploads', 'resumes');
 
-    constructor() {
+    constructor(@InjectPinoLogger(ResumeParserService.name) private readonly logger: PinoLogger) {
+        logger.setContext(ResumeParserService.name);
         // Ensure upload directory exists
         if (!fs.existsSync(this.uploadDir)) {
             fs.mkdirSync(this.uploadDir, { recursive: true });
@@ -50,7 +51,7 @@ export class ResumeParserService {
     }): Promise<ParsedResume> {
         const ext = path.extname(file.originalname).toLowerCase();
 
-        this.logger.log(`📄 Parsing resume: ${file.originalname} (${ext})`);
+        this.logger.info(`📄 Parsing resume: ${file.originalname} (${ext})`);
 
         let text = '';
         let fileType: ParsedResume['fileType'];
@@ -85,7 +86,7 @@ export class ResumeParserService {
         const extractedPhone = this.extractPhone(text);
         const extractedName = this.extractName(text);
 
-        this.logger.log(`✅ Parsed resume: ${text.length} chars, ${extractedSkills.length} skills detected`);
+        this.logger.info(`✅ Parsed resume: ${text.length} chars, ${extractedSkills.length} skills detected`);
 
         return {
             text,
@@ -110,7 +111,7 @@ export class ResumeParserService {
         const filePath = path.join(this.uploadDir, fileName);
 
         await fs.promises.writeFile(filePath, file.buffer);
-        this.logger.log(`💾 Saved resume file: ${fileName}`);
+        this.logger.info(`💾 Saved resume file: ${fileName}`);
 
         return `/uploads/resumes/${fileName}`;
     }
@@ -127,7 +128,8 @@ export class ResumeParserService {
             const data = await pdfParse(buffer);
             return data.text || '';
         } catch (error) {
-            this.logger.error(`PDF parsing error: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`PDF parsing error: ${errorMessage}`);
             throw new BadRequestException('Failed to parse PDF file. Make sure it is a valid PDF.');
         }
     }
@@ -144,7 +146,8 @@ export class ResumeParserService {
             const result = await mammoth.extractRawText({ buffer });
             return result.value || '';
         } catch (error) {
-            this.logger.error(`DOCX parsing error: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`DOCX parsing error: ${errorMessage}`);
             throw new BadRequestException('Failed to parse DOCX file. Make sure it is a valid Word document.');
         }
     }

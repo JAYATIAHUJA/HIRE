@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -6,13 +7,14 @@ import { LlmService } from '../services/llm.service';
 
 @Injectable()
 export class UsersService {
-  private readonly logger = new Logger(UsersService.name);
-
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private llmService: LlmService,
-  ) { }
+    @InjectPinoLogger(UsersService.name) private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(UsersService.name);
+  }
 
   async createUser(data: {
     fullname: string;
@@ -26,7 +28,7 @@ export class UsersService {
 
     if (user) {
       // Update existing user
-      this.logger.log(`User with email ${data.email} already exists, updating...`);
+      this.logger.info(`User with email ${data.email} already exists, updating...`);
       user.fullname = data.fullname;
       user.masterResumeText = data.masterResumeText;
       user.skills = data.skills;
@@ -47,7 +49,7 @@ export class UsersService {
     // Generate profile vector (non-blocking - continue even if it fails)
     this.generateProfileVectorAsync(user);
 
-    this.logger.log(`User ready: ${user.email} (id: ${user.id})`);
+    this.logger.info(`User ready: ${user.email} (id: ${user.id})`);
     return user;
   }
 
@@ -88,7 +90,7 @@ export class UsersService {
     // Regenerate profile vector
     this.generateProfileVectorAsync(user);
 
-    this.logger.log(`Resume updated for user: ${user.email}`);
+    this.logger.info(`Resume updated for user: ${user.email}`);
     return user;
   }
 
@@ -119,9 +121,10 @@ export class UsersService {
       const profileText = `${user.masterResumeText || ''}\n\nSkills: ${(user.skills || []).join(', ')}`;
       user.profileVector = await this.llmService.generateEmbedding(profileText);
       await this.userRepository.save(user);
-      this.logger.log(`Profile vector generated for user: ${user.email}`);
+      this.logger.info(`Profile vector generated for user: ${user.email}`);
     } catch (error) {
-      this.logger.warn(`Failed to generate profile vector for ${user.email}: ${error.message}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to generate profile vector for ${user.email}: ${errorMessage}`);
     }
   }
 
@@ -133,7 +136,12 @@ export class UsersService {
     return this.userRepository.findOne({ where: { email } });
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find();
+  async findAll(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number }> {
+    const [data, total] = await this.userRepository.findAndCount({
+      skip: (page - 1) * limit,
+      take: limit,
+      order: { createdAt: 'DESC' },
+    });
+    return { data, total };
   }
 }

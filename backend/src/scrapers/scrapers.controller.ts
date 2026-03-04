@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { ScrapersService } from './scrapers.service';
 import { IsUUID, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
 
@@ -63,11 +63,18 @@ export class ScrapersController {
    */
   @Post('universal')
   async scrapeUniversal(@Body() dto: ScrapeUniversalDto) {
-    const job = await this.scrapersService.scrapeUniversalJob(dto.url);
-    return {
-      message: 'Universal scraping completed',
-      job,
-    };
+    try {
+      const job = await this.scrapersService.scrapeUniversalJob(dto.url);
+      return {
+        message: 'Universal scraping completed',
+        job,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new BadRequestException(error.message);
+      }
+      throw new InternalServerErrorException('An unexpected error occurred during scraping');
+    }
   }
 
   /**

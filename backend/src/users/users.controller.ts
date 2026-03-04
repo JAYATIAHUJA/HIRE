@@ -4,6 +4,7 @@ import {
   Body,
   Get,
   Param,
+  Query,
   BadRequestException,
   HttpCode,
   HttpStatus,
@@ -191,6 +192,37 @@ export class UsersController {
 
     return {
       message: 'Resume updated successfully',
+    };
+  }
+
+  /**
+   * Get all users (paginated)
+   */
+  @Get()
+  async getAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    const parsedPage = parseInt(page as string, 10);
+    const parsedLimit = parseInt(limit as string, 10);
+
+    const pageNumber = isNaN(parsedPage) ? 1 : Math.max(1, parsedPage);
+    const limitNumber = isNaN(parsedLimit) ? 10 : Math.max(1, parsedLimit);
+
+    const validLimit = limitNumber > 100 ? 100 : limitNumber;
+
+    const { data, total } = await this.usersService.findAll(pageNumber, validLimit);
+
+    return {
+      data: data.map(user => ({
+        id: user.id,
+        email: user.email,
+        fullname: user.fullname,
+        skills: user.skills,
+      })),
+      meta: {
+        total,
+        page: pageNumber,
+        limit: validLimit,
+        totalPages: Math.ceil(total / validLimit),
+      }
     };
   }
 

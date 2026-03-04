@@ -14,6 +14,7 @@ import { BrowserProfileController } from '../services/browser-profile.controller
 import { JobsModule } from '../jobs/jobs.module';
 import { UsersModule } from '../users/users.module';
 import { SimpleAutomationService } from '../services/simple-automation.service';
+import { AdvancedAutomationService } from '../services/advanced-automation.service';
 
 @Module({
   imports: [
@@ -28,8 +29,9 @@ import { SimpleAutomationService } from '../services/simple-automation.service';
     AuditLogService,
     BrowserProfileService,
     SimpleAutomationService,
+    AdvancedAutomationService,
   ],
-  exports: [ApplicationsService, AuditLogService, BrowserProfileService],
+  exports: [ApplicationsService, AuditLogService, BrowserProfileService, AdvancedAutomationService],
 })
 export class ApplicationsModule { }
 
