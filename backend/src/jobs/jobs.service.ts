@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { JobListing, Platform } from './entities/job-listing.entity';
@@ -8,8 +9,6 @@ import { MatchingService } from '../services/matching.service';
 
 @Injectable()
 export class JobsService {
-  private readonly logger = new Logger(JobsService.name);
-
   constructor(
     @InjectRepository(JobListing)
     private jobRepository: Repository<JobListing>,
@@ -17,7 +16,10 @@ export class JobsService {
     private userRepository: Repository<User>,
     private llmService: LlmService,
     private matchingService: MatchingService,
-  ) { }
+    @InjectPinoLogger(JobsService.name) private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(JobsService.name);
+  }
 
   async saveScrapedJob(
     platform: Platform,

@@ -59,7 +59,7 @@ export class RssScraper {
         // Clean up title (often "Role: Company" or "Company: Role")
         let company = 'Unknown Company';
         if (title.includes(':')) {
-           const parts = title.split(':');
+           // const parts = title.split(':');
            // Heuristic: usually "Company: Role" or "Role at Company" ??
            // WWR: "Role: Company"
            // Remotive: "Role at Company"

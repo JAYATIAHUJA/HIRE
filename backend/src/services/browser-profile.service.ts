@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import axios from 'axios';
@@ -10,13 +11,14 @@ export type Platform = 'linkedin' | 'internshala';
 
 @Injectable()
 export class BrowserProfileService {
-    private readonly logger = new Logger(BrowserProfileService.name);
     private readonly skyvernBaseUrl: string;
 
     constructor(
         @InjectRepository(BrowserProfile)
         private browserProfileRepository: Repository<BrowserProfile>,
+        @InjectPinoLogger(BrowserProfileService.name) private readonly logger: PinoLogger,
     ) {
+        logger.setContext(BrowserProfileService.name);
         this.skyvernBaseUrl = process.env.SKYVERN_BASE_URL || 'http://localhost:8000';
     }
 
@@ -47,7 +49,7 @@ export class BrowserProfileService {
         userId: string,
         platform: Platform,
     ): Promise<{ workflowRunId: string; streamUrl: string }> {
-        this.logger.log(`Creating browser profile for user ${userId} on ${platform}`);
+        this.logger.info(`Creating browser profile for user ${userId} on ${platform}`);
 
         const loginUrl = platform === 'linkedin'
             ? 'https://www.linkedin.com/login'
@@ -76,11 +78,12 @@ Once the user confirms they've logged in, the session will be saved.
             const taskId = response.data.task_id || response.data.id;
             const streamUrl = `http://localhost:7900`; // VNC viewer URL
 
-            this.logger.log(`Login task created: ${taskId}`);
+            this.logger.info(`Login task created: ${taskId}`);
 
             return { workflowRunId: taskId, streamUrl };
         } catch (error: any) {
-            this.logger.error(`Failed to create browser profile: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to create browser profile: ${errorMessage}`);
 
             // If Skyvern fails, return a mock response so user can still proceed
             // They can log in manually when applying
@@ -129,11 +132,12 @@ Once the user confirms they've logged in, the session will be saved.
 
             await this.browserProfileRepository.save(profile);
 
-            this.logger.log(`Browser profile saved: ${skyvernProfileId} for ${platform}`);
+            this.logger.info(`Browser profile saved: ${skyvernProfileId} for ${platform}`);
 
             return profile;
         } catch (error) {
-            this.logger.error(`Failed to complete profile creation: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            this.logger.error(`Failed to complete profile creation: ${errorMessage}`);
             throw error;
         }
     }
@@ -153,11 +157,12 @@ Once the user confirms they've logged in, the session will be saved.
                     `${this.skyvernBaseUrl}/api/v1/browser_profiles/${profile.skyvernProfileId}`,
                 );
             } catch (error) {
-                this.logger.warn(`Failed to delete Skyvern profile: ${error.message}`);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                this.logger.warn(`Failed to delete Skyvern profile: ${errorMessage}`);
             }
 
             await this.browserProfileRepository.remove(profile);
-            this.logger.log(`Browser profile deleted for ${platform}`);
+            this.logger.info(`Browser profile deleted for ${platform}`);
         }
     }
 

@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ApplicationLog, ApplicationEvent } from '../applications/entities/application-log.entity';
@@ -8,12 +9,13 @@ import { ApplicationLog, ApplicationEvent } from '../applications/entities/appli
  */
 @Injectable()
 export class AuditLogService {
-  private readonly logger = new Logger(AuditLogService.name);
-
   constructor(
     @InjectRepository(ApplicationLog)
     private applicationLogRepository: Repository<ApplicationLog>,
-  ) {}
+    @InjectPinoLogger(AuditLogService.name) private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(AuditLogService.name);
+  }
 
   /**
    * Log an application event
@@ -35,15 +37,16 @@ export class AuditLogService {
       const savedLog = await this.applicationLogRepository.save(log);
 
       // Also log to application logger for real-time monitoring
-      this.logger.log(
+      this.logger.info(
         `[${applicationId.substring(0, 8)}] ${event}${message ? `: ${message}` : ''}`,
         metadata ? JSON.stringify(metadata) : undefined,
       );
 
       return savedLog;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `Failed to log event ${event} for application ${applicationId}: ${error.message}`,
+        `Failed to log event ${event} for application ${applicationId}: ${errorMessage}`,
       );
       throw error;
     }
