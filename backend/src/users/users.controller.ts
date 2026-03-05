@@ -6,12 +6,16 @@ import {
   Param,
   Query,
   BadRequestException,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 class CreateUserDto {
   @IsString()
@@ -24,6 +28,10 @@ class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   masterResumeText: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
 
   @IsArray()
   @IsString({ each: true })
@@ -99,12 +107,18 @@ export class UsersController {
    *   "mimeType": "application/pdf"
    * }
    */
+  @UseGuards(JwtAuthGuard)
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
   async uploadResume(
+    @Request() req,
     @Param('id') userId: string,
     @Body() uploadDto: UploadResumeDto,
   ) {
+    if (req.user.userId !== userId) {
+      throw new ForbiddenException('You can only upload resume for yourself');
+    }
+
     // Validate file type
     const allowedTypes = [
       'application/pdf',
@@ -174,12 +188,18 @@ export class UsersController {
   /**
    * Update resume text directly
    */
+  @UseGuards(JwtAuthGuard)
   @Post(':id/resume')
   @HttpCode(HttpStatus.OK)
   async updateResume(
+    @Request() req,
     @Param('id') userId: string,
     @Body() updateDto: UpdateResumeDto,
   ) {
+    if (req.user.userId !== userId) {
+      throw new ForbiddenException('You can only update your own resume');
+    }
+
     const user = await this.usersService.findOne(userId);
     if (!user) {
       throw new BadRequestException('User not found');

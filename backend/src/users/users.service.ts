@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { LlmService } from '../services/llm.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -22,6 +23,7 @@ export class UsersService {
     masterResumeText: string;
     skills: string[];
     phone?: string;
+    password?: string;
   }): Promise<User> {
     // Check if user with this email already exists
     let user = await this.userRepository.findOne({ where: { email: data.email } });
@@ -33,6 +35,9 @@ export class UsersService {
       user.masterResumeText = data.masterResumeText;
       user.skills = data.skills;
       if (data.phone) user.phone = data.phone;
+      if (data.password) {
+        user.password = await bcrypt.hash(data.password, 10);
+      }
     } else {
       // Create new user
       user = this.userRepository.create({
@@ -41,6 +46,7 @@ export class UsersService {
         masterResumeText: data.masterResumeText,
         skills: data.skills,
         phone: data.phone,
+        password: data.password ? await bcrypt.hash(data.password, 10) : undefined,
       });
     }
 

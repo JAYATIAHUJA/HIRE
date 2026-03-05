@@ -22,6 +22,9 @@ export class User {
   email: string;
 
   @Column({ type: 'text', nullable: true })
+  password?: string;
+
+  @Column({ type: 'text', nullable: true })
   phone: string;
 
   @Column({ type: 'text', name: 'masterresumetext', nullable: true })
