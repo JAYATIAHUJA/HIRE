@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { IsUUID, IsOptional, IsString } from 'class-validator';
 
@@ -39,6 +40,7 @@ class RetryApplicationDto {
   credentials?: { email?: string; password?: string };
 }
 
+@ApiTags('applications')
 @Controller('api/applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) { }
