@@ -8,10 +8,12 @@ import {
   BadRequestException,
   HttpCode,
   HttpStatus,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
+import { FastifyRequest } from 'fastify';
 
 class CreateUserDto {
   @IsString()
@@ -45,19 +47,8 @@ class UpdateResumeDto {
   skills?: string[];
 }
 
-class UploadResumeDto {
-  @IsString()
-  @IsNotEmpty()
-  fileContent: string; // Base64 encoded file
-
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  mimeType: string;
-}
+// Deprecated: Use multipart upload instead
+// class UploadResumeDto { ... }
 
 @Controller('api/users')
 export class UsersController {
@@ -101,10 +92,24 @@ export class UsersController {
    */
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
+  async uploadResume(Multipart/Form-Data
+   */
+  @Post(':id/upload-resume')
+  @HttpCode(HttpStatus.OK)
   async uploadResume(
     @Param('id') userId: string,
-    @Body() uploadDto: UploadResumeDto,
+    @Req() req: FastifyRequest,
   ) {
+    // Check if multipart
+    if (!req.isMultipart()) {
+      throw new BadRequestException('Request must be multipart/form-data');
+    }
+
+    const file = await req.file();
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
     // Validate file type
     const allowedTypes = [
       'application/pdf',
@@ -112,10 +117,10 @@ export class UsersController {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
     ];
-    const allowedExts = ['.pdf', '.doc', '.docx', '.txt'];
-    const ext = uploadDto.fileName.toLowerCase().slice(uploadDto.fileName.lastIndexOf('.'));
-
-    if (!allowedTypes.includes(uploadDto.mimeType) && !allowedExts.includes(ext)) {
+    // Check magic numbers or extension if mimetype is generic application/octet-stream? 
+    // For now rely on Fastify's detected mimetype
+    
+    if (!allowedTypes.includes(file.mimetype)) {
       throw new BadRequestException('Only PDF, DOC, DOCX, and TXT files are allowed');
     }
 
@@ -125,25 +130,20 @@ export class UsersController {
       throw new BadRequestException('User not found');
     }
 
-    // Decode base64 content
-    let buffer: Buffer;
-    try {
-      buffer = Buffer.from(uploadDto.fileContent, 'base64');
-    } catch (e) {
-      throw new BadRequestException('Invalid base64 file content');
-    }
+    // Convert stream to buffer
+    const buffer = await file.toBuffer();
 
     // Parse resume
     const parsedResume = await this.resumeParserService.parseResume({
       buffer,
-      originalname: uploadDto.fileName,
-      mimetype: uploadDto.mimeType,
+      originalname: file.filename,
+      mimetype: file.mimetype,
     });
 
     // Save resume file
     const resumeFileUrl = await this.resumeParserService.saveResumeFile(userId, {
       buffer,
-      originalname: uploadDto.fileName,
+      originalname: file.filename,
     });
 
     // Update user with parsed resume text and extracted skills
@@ -161,18 +161,7 @@ export class UsersController {
 
     return {
       message: 'Resume uploaded and parsed successfully',
-      fileName: uploadDto.fileName,
-      fileUrl: resumeFileUrl,
-      extractedSkills: parsedResume.extractedSkills,
-      extractedEmail: parsedResume.extractedEmail,
-      extractedPhone: parsedResume.extractedPhone,
-      extractedName: parsedResume.extractedName,
-      textLength: parsedResume.text.length,
-    };
-  }
-
-  /**
-   * Update resume text directly
+      fileName: file.fileny
    */
   @Post(':id/resume')
   @HttpCode(HttpStatus.OK)

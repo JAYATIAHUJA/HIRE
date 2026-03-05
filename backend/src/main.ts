@@ -4,7 +4,8 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { Logger } from 'nestjs-pino';
 import { join } from 'path';
 import * as fs from 'fs';
-import { AppModule } from './app.module';
+import { AppModule } from './app.module';     
+import multipart from '@fastify/multipart';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -12,6 +13,13 @@ async function bootstrap() {
     new FastifyAdapter({ logger: false }),
     { bufferLogs: true },
   );
+
+  // Register multipart support
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    },
+  });
 
   app.useLogger(app.get(Logger));
   const logger = app.get(Logger);
