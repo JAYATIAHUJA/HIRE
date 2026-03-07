@@ -9,6 +9,7 @@ import {
   ForbiddenException,
   HttpCode,
   HttpStatus,
+  Req,
   UseGuards,
   Request,
 } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
+import { FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 class CreateUserDto {
@@ -54,19 +56,8 @@ class UpdateResumeDto {
   skills?: string[];
 }
 
-class UploadResumeDto {
-  @IsString()
-  @IsNotEmpty()
-  fileContent: string; // Base64 encoded file
-
-  @IsString()
-  @IsNotEmpty()
-  fileName: string;
-
-  @IsString()
-  @IsNotEmpty()
-  mimeType: string;
-}
+// Deprecated: Use multipart upload instead
+// class UploadResumeDto { ... }
 
 @ApiTags('users')
 @Controller('api/users')
@@ -115,12 +106,25 @@ export class UsersController {
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
   async uploadResume(
-    @Request() req,
+    @Req() req: FastifyRequest,
     @Param('id') userId: string,
-    @Body() uploadDto: UploadResumeDto,
   ) {
-    if (req.user.userId !== userId) {
+    // Check ownership
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((req as any).user.userId !== userId) {
       throw new ForbiddenException('You can only upload resume for yourself');
+    }
+
+    // Check if multipart
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(req as any).isMultipart()) {
+      throw new BadRequestException('Request must be multipart/form-data');
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const file = await (req as any).file();
+    if (!file) {
+      throw new BadRequestException('File is required');
     }
 
     // Validate file type
@@ -130,10 +134,12 @@ export class UsersController {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
     ];
-    const allowedExts = ['.pdf', '.doc', '.docx', '.txt'];
-    const ext = uploadDto.fileName.toLowerCase().slice(uploadDto.fileName.lastIndexOf('.'));
-
-    if (!allowedTypes.includes(uploadDto.mimeType) && !allowedExts.includes(ext)) {
+    
+    // Validate extension as a secondary check
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+    const fileExtension = file.filename.toLowerCase().slice(file.filename.lastIndexOf('.'));
+    
+    if (!allowedTypes.includes(file.mimetype) || !allowedExtensions.includes(fileExtension)) {
       throw new BadRequestException('Only PDF, DOC, DOCX, and TXT files are allowed');
     }
 
@@ -143,25 +149,20 @@ export class UsersController {
       throw new BadRequestException('User not found');
     }
 
-    // Decode base64 content
-    let buffer: Buffer;
-    try {
-      buffer = Buffer.from(uploadDto.fileContent, 'base64');
-    } catch (e) {
-      throw new BadRequestException('Invalid base64 file content');
-    }
+    // Convert stream to buffer
+    const buffer = await file.toBuffer();
 
     // Parse resume
     const parsedResume = await this.resumeParserService.parseResume({
       buffer,
-      originalname: uploadDto.fileName,
-      mimetype: uploadDto.mimeType,
+      originalname: file.filename,
+      mimetype: file.mimetype,
     });
 
     // Save resume file
     const resumeFileUrl = await this.resumeParserService.saveResumeFile(userId, {
       buffer,
-      originalname: uploadDto.fileName,
+      originalname: file.filename,
     });
 
     // Update user with parsed resume text and extracted skills
@@ -179,8 +180,7 @@ export class UsersController {
 
     return {
       message: 'Resume uploaded and parsed successfully',
-      fileName: uploadDto.fileName,
-      fileUrl: resumeFileUrl,
+      fileName: file.filename,
       extractedSkills: parsedResume.extractedSkills,
       extractedEmail: parsedResume.extractedEmail,
       extractedPhone: parsedResume.extractedPhone,
