@@ -15,6 +15,7 @@ function ApplicationPreviewPage() {
     if (id) {
       loadApplication();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Poll for updates when status is Drafting (live streaming)

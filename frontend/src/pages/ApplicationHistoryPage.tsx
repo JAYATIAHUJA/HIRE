@@ -20,6 +20,7 @@ function ApplicationHistoryPage() {
     }
 
     loadApplications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, navigate]);
 
   const loadApplications = async () => {

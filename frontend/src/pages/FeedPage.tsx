@@ -81,6 +81,7 @@ function FeedPage() {
     }
 
     loadFeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, navigate]);
 
   const [scraping, setScraping] = useState(false);
