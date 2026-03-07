@@ -17,6 +17,17 @@ export class UsersService {
     logger.setContext(UsersService.name);
   }
 
+  async findByEmail(email: string, includePassword = false): Promise<User | null> {
+    const query = this.userRepository.createQueryBuilder('user')
+      .where('user.email = :email', { email });
+    
+    if (includePassword) {
+      query.addSelect('user.password');
+    }
+
+    return query.getOne();
+  }
+
   async createUser(data: {
     fullname: string;
     email: string;
@@ -56,6 +67,12 @@ export class UsersService {
     this.generateProfileVectorAsync(user);
 
     this.logger.info(`User ready: ${user.email} (id: ${user.id})`);
+    
+    // Explicitly remove password from the returned object to prevent leakage
+    if (user.password) {
+      delete user.password;
+    }
+    
     return user;
   }
 
@@ -136,10 +153,6 @@ export class UsersService {
 
   async findOne(id: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
-  }
-
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
   }
 
   async findAll(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number }> {

@@ -77,6 +77,7 @@ export class UsersController {
   /**
    * Create or update user with text resume
    */
+  @UseGuards(JwtAuthGuard)
   @Post()
   async createUser(@Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.createUser(createUserDto);
@@ -92,6 +93,7 @@ export class UsersController {
   /**
    * Legacy seed-user endpoint
    */
+  @UseGuards(JwtAuthGuard)
   @Post('/seed')
   async seedUser(@Body() createUserDto: CreateUserDto) {
     return this.createUser(createUserDto);
