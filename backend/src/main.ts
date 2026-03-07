@@ -5,6 +5,7 @@ import { Logger } from 'nestjs-pino';
 import { join } from 'path';
 import * as fs from 'fs';
 import { AppModule } from './app.module';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -17,6 +18,16 @@ async function bootstrap() {
   const logger = app.get(Logger);
 
   try {
+
+    // Setup Swagger
+    const config = new DocumentBuilder()
+      .setTitle('HIRE API')
+      .setDescription('The HIRE Job Application Engine API description')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
 
     app.enableCors({
       origin: '*', // Allow all origins for testing

@@ -1,4 +1,5 @@
 import { Controller, Post, Get, Body, Query, HttpCode, HttpStatus, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ScrapersService } from './scrapers.service';
 import { IsUUID, IsOptional, IsBoolean, IsNumber, IsUrl } from 'class-validator';
 
@@ -20,6 +21,7 @@ class ScrapeForUserDto {
   clearOld?: boolean;
 }
 
+@ApiTags('scrapers')
 @Controller('api/scrapers')
 export class ScrapersController {
   constructor(private readonly scrapersService: ScrapersService) { }

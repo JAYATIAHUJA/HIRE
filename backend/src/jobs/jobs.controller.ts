@@ -1,4 +1,5 @@
 import { Controller, Get, Query, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { JobsService } from './jobs.service';
 import { ApplicationsService } from '../applications/applications.service';
 import { IsUUID, IsString, IsOptional } from 'class-validator';
@@ -48,6 +49,7 @@ class SwipeRightDto {
   credentials?: CredentialsDto;
 }
 
+@ApiTags('jobs')
 @Controller('api')
 export class JobsController {
   constructor(

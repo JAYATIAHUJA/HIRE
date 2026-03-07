@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
@@ -59,6 +60,7 @@ class UploadResumeDto {
   mimeType: string;
 }
 
+@ApiTags('users')
 @Controller('api/users')
 export class UsersController {
   constructor(
