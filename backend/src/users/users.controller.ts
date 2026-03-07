@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Req,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
@@ -50,6 +51,7 @@ class UpdateResumeDto {
 // Deprecated: Use multipart upload instead
 // class UploadResumeDto { ... }
 
+@ApiTags('users')
 @Controller('api/users')
 export class UsersController {
   constructor(

@@ -9,6 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { IsUUID, IsOptional, IsString } from 'class-validator';
 
@@ -18,6 +19,9 @@ class SwipeRightDto {
 
   @IsUUID()
   jobId: string;
+
+  @IsOptional()
+  credentials?: { email?: string; password?: string };
 }
 
 class ApproveApplicationDto {
@@ -39,6 +43,7 @@ class RetryApplicationDto {
   credentials?: { email?: string; password?: string };
 }
 
+@ApiTags('applications')
 @Controller('api/applications')
 export class ApplicationsController {
   constructor(private readonly applicationsService: ApplicationsService) { }
@@ -51,6 +56,7 @@ export class ApplicationsController {
     const application = await this.applicationsService.createApplication(
       dto.userId,
       dto.jobId,
+      dto.credentials,
     );
 
     return {
