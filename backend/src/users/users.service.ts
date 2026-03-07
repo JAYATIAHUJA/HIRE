@@ -4,6 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { LlmService } from '../services/llm.service';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
@@ -16,12 +17,24 @@ export class UsersService {
     logger.setContext(UsersService.name);
   }
 
+  async findByEmail(email: string, includePassword = false): Promise<User | null> {
+    const query = this.userRepository.createQueryBuilder('user')
+      .where('user.email = :email', { email });
+    
+    if (includePassword) {
+      query.addSelect('user.password');
+    }
+
+    return query.getOne();
+  }
+
   async createUser(data: {
     fullname: string;
     email: string;
     masterResumeText: string;
     skills: string[];
     phone?: string;
+    password?: string;
   }): Promise<User> {
     // Check if user with this email already exists
     let user = await this.userRepository.findOne({ where: { email: data.email } });
@@ -33,6 +46,9 @@ export class UsersService {
       user.masterResumeText = data.masterResumeText;
       user.skills = data.skills;
       if (data.phone) user.phone = data.phone;
+      if (data.password) {
+        user.password = await bcrypt.hash(data.password, 10);
+      }
     } else {
       // Create new user
       user = this.userRepository.create({
@@ -41,6 +57,7 @@ export class UsersService {
         masterResumeText: data.masterResumeText,
         skills: data.skills,
         phone: data.phone,
+        password: data.password ? await bcrypt.hash(data.password, 10) : undefined,
       });
     }
 
@@ -50,6 +67,12 @@ export class UsersService {
     this.generateProfileVectorAsync(user);
 
     this.logger.info(`User ready: ${user.email} (id: ${user.id})`);
+    
+    // Explicitly remove password from the returned object to prevent leakage
+    if (user.password) {
+      delete user.password;
+    }
+    
     return user;
   }
 
@@ -130,10 +153,6 @@ export class UsersService {
 
   async findOne(id: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
-  }
-
-  async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
   }
 
   async findAll(page: number = 1, limit: number = 10): Promise<{ data: User[]; total: number }> {

@@ -6,15 +6,19 @@ import {
   Param,
   Query,
   BadRequestException,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
   Req,
+  UseGuards,
+  Request,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
 import { FastifyRequest } from 'fastify';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 class CreateUserDto {
   @IsString()
@@ -27,6 +31,10 @@ class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   masterResumeText: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
 
   @IsArray()
   @IsString({ each: true })
@@ -62,6 +70,7 @@ export class UsersController {
   /**
    * Create or update user with text resume
    */
+  @UseGuards(JwtAuthGuard)
   @Post()
   async createUser(@Body() createUserDto: CreateUserDto) {
     const user = await this.usersService.createUser(createUserDto);
@@ -77,6 +86,7 @@ export class UsersController {
   /**
    * Legacy seed-user endpoint
    */
+  @UseGuards(JwtAuthGuard)
   @Post('/seed')
   async seedUser(@Body() createUserDto: CreateUserDto) {
     return this.createUser(createUserDto);
@@ -92,17 +102,26 @@ export class UsersController {
    *   "mimeType": "application/pdf"
    * }
    */
+  @UseGuards(JwtAuthGuard)
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
   async uploadResume(
-    @Param('id') userId: string,
     @Req() req: FastifyRequest,
+    @Param('id') userId: string,
   ) {
+    // Check ownership
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((req as any).user.userId !== userId) {
+      throw new ForbiddenException('You can only upload resume for yourself');
+    }
+
     // Check if multipart
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(req as any).isMultipart()) {
       throw new BadRequestException('Request must be multipart/form-data');
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const file = await (req as any).file();
     if (!file) {
       throw new BadRequestException('File is required');
@@ -173,12 +192,18 @@ export class UsersController {
   /**
    * Update resume text directly
    */
+  @UseGuards(JwtAuthGuard)
   @Post(':id/resume')
   @HttpCode(HttpStatus.OK)
   async updateResume(
+    @Request() req,
     @Param('id') userId: string,
     @Body() updateDto: UpdateResumeDto,
   ) {
+    if (req.user.userId !== userId) {
+      throw new ForbiddenException('You can only update your own resume');
+    }
+
     const user = await this.usersService.findOne(userId);
     if (!user) {
       throw new BadRequestException('User not found');
