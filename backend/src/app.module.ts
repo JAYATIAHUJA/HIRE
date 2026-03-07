@@ -6,6 +6,7 @@ import { UsersModule } from './users/users.module';
 import { JobsModule } from './jobs/jobs.module';
 import { ApplicationsModule } from './applications/applications.module';
 import { ScrapersModule } from './scrapers/scrapers.module';
+import { AuthModule } from './auth/auth.module';
 import { DatabaseConfig } from './config/database.config';
 
 @Module({
@@ -59,6 +60,7 @@ import { DatabaseConfig } from './config/database.config';
     JobsModule,
     ApplicationsModule,
     ScrapersModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

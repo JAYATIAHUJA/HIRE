@@ -25,6 +25,7 @@ export class ConfigService implements OnModuleInit {
   readonly PORT: number;
   readonly NODE_ENV: string;
   readonly LOG_LEVEL: string;
+  readonly JWT_SECRET: string;
 
   // Embedding
   readonly EMBEDDING_MODEL: string;
@@ -53,6 +54,8 @@ export class ConfigService implements OnModuleInit {
 
     this.PORT = parseInt(this.getEnv('BACKEND_PORT', false, '3000'));
     this.NODE_ENV = this.getEnv('NODE_ENV', false, 'development');
+    const isProduction = this.NODE_ENV === 'production';
+    this.JWT_SECRET = this.getEnv('JWT_SECRET', isProduction, isProduction ? undefined : 'super-secret-key-change-me');
     this.LOG_LEVEL = this.getEnv('LOG_LEVEL', false, 'info');
 
     this.EMBEDDING_MODEL = this.getEnv('EMBEDDING_MODEL', false, 'text-embedding-3-small');
