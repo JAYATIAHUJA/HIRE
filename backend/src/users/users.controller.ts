@@ -92,20 +92,16 @@ export class UsersController {
    */
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
-  async uploadResume(Multipart/Form-Data
-   */
-  @Post(':id/upload-resume')
-  @HttpCode(HttpStatus.OK)
   async uploadResume(
     @Param('id') userId: string,
     @Req() req: FastifyRequest,
   ) {
     // Check if multipart
-    if (!req.isMultipart()) {
+    if (!(req as any).isMultipart()) {
       throw new BadRequestException('Request must be multipart/form-data');
     }
 
-    const file = await req.file();
+    const file = await (req as any).file();
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -117,10 +113,12 @@ export class UsersController {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'text/plain',
     ];
-    // Check magic numbers or extension if mimetype is generic application/octet-stream? 
-    // For now rely on Fastify's detected mimetype
     
-    if (!allowedTypes.includes(file.mimetype)) {
+    // Validate extension as a secondary check
+    const allowedExtensions = ['.pdf', '.doc', '.docx', '.txt'];
+    const fileExtension = file.filename.toLowerCase().slice(file.filename.lastIndexOf('.'));
+    
+    if (!allowedTypes.includes(file.mimetype) || !allowedExtensions.includes(fileExtension)) {
       throw new BadRequestException('Only PDF, DOC, DOCX, and TXT files are allowed');
     }
 
@@ -161,7 +159,17 @@ export class UsersController {
 
     return {
       message: 'Resume uploaded and parsed successfully',
-      fileName: file.fileny
+      fileName: file.filename,
+      extractedSkills: parsedResume.extractedSkills,
+      extractedEmail: parsedResume.extractedEmail,
+      extractedPhone: parsedResume.extractedPhone,
+      extractedName: parsedResume.extractedName,
+      textLength: parsedResume.text.length,
+    };
+  }
+
+  /**
+   * Update resume text directly
    */
   @Post(':id/resume')
   @HttpCode(HttpStatus.OK)
