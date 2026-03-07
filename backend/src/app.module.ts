@@ -8,6 +8,8 @@ import { ApplicationsModule } from './applications/applications.module';
 import { ScrapersModule } from './scrapers/scrapers.module';
 import { AuthModule } from './auth/auth.module';
 import { DatabaseConfig } from './config/database.config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 
 @Module({
   imports: [
@@ -15,6 +17,10 @@ import { DatabaseConfig } from './config/database.config';
       isGlobal: true,
       envFilePath: '.env',
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 100, // global limit
+    }]),
     LoggerModule.forRoot({
       pinoHttp: {
         transport:
@@ -61,6 +67,12 @@ import { DatabaseConfig } from './config/database.config';
     ApplicationsModule,
     ScrapersModule,
     AuthModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

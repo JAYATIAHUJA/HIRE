@@ -19,6 +19,8 @@ import { ResumeParserService } from '../services/resume-parser.service';
 import { IsString, IsEmail, IsArray, IsNotEmpty, IsOptional } from 'class-validator';
 import { FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Throttle } from '@nestjs/throttler';
+import { FileValidator } from '../common/utils/file-validation.util';
 
 class CreateUserDto {
   @IsString()
@@ -105,6 +107,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   @Post(':id/upload-resume')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async uploadResume(
     @Req() req: FastifyRequest,
     @Param('id') userId: string,
@@ -151,6 +154,11 @@ export class UsersController {
 
     // Convert stream to buffer
     const buffer = await file.toBuffer();
+
+    // Validate using secure file validator (size, magic numbers, extension)
+    FileValidator.validate(buffer, file.filename, file.mimetype, {
+      maxSize: 5 * 1024 * 1024, // 5MB Limit
+    });
 
     // Parse resume
     const parsedResume = await this.resumeParserService.parseResume({
