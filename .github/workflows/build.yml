@@ -43,8 +43,10 @@ jobs:
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
-      - name: Install dependencies (root workspace)
-        run: npm ci
+      - name: Clean install dependencies (frontend)
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
 
       - name: Build
         run: npm --prefix frontend run build
