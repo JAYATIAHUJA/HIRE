@@ -38,6 +38,7 @@
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "dateformat": "^5.0.3",
     "dotenv": "^16.3.1",
     "fastify": "^5.6.2",
     "js-yaml": "^4.1.0",

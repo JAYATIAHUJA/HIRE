@@ -55,6 +55,16 @@ export interface BrowserProfile {
 
 export const api = {
   // User APIs
+  getUser: async (userId: string) => {
+    const response = await apiClient.get(`/api/users/${userId}`);
+    return response.data;
+  },
+  
+  updateProfile: async (userId: string, data: any) => {
+    const response = await apiClient.patch(`/api/users/${userId}/profile`, data);
+    return response.data;
+  },
+
   createUser: async (userData: {
     fullname: string;
     email: string;

@@ -36,6 +36,12 @@ export class User {
   @Column({ type: 'jsonb', nullable: true })
   skills: string[];
 
+  @Column({ type: 'jsonb', nullable: true })
+  experience: Record<string, any>[];
+
+  @Column({ type: 'float', default: 0 })
+  profileCompleteness: number;
+
   @Column({
     type: 'vector',
     nullable: true,

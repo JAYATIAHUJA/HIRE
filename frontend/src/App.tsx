@@ -4,6 +4,7 @@ import FeedPage from './pages/FeedPage';
 import ApplicationPreviewPage from './pages/ApplicationPreviewPage';
 import ApplicationHistoryPage from './pages/ApplicationHistoryPage';
 import OnboardingPage from './pages/OnboardingPage';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -12,6 +13,7 @@ function App() {
       <Route path="/feed" element={<FeedPage />} />
       <Route path="/applications" element={<ApplicationHistoryPage />} />
       <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
       <Route path="/applications/:id" element={<ApplicationPreviewPage />} />
     </Routes>
   );

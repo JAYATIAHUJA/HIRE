@@ -62,6 +62,8 @@ export class UsersService {
     }
 
     await this.userRepository.save(user);
+    this.updateProfileCompleteness(user);
+    await this.userRepository.save(user);
 
     // Generate profile vector (non-blocking - continue even if it fails)
     this.generateProfileVectorAsync(user);
@@ -114,7 +116,8 @@ export class UsersService {
     this.generateProfileVectorAsync(user);
 
     this.logger.info(`Resume updated for user: ${user.email}`);
-    return user;
+    this.updateProfileCompleteness(user);
+    return this.userRepository.save(user);
   }
 
   /**
@@ -128,12 +131,55 @@ export class UsersService {
     }
 
     user.skills = skills;
+    this.updateProfileCompleteness(user);
     await this.userRepository.save(user);
 
     // Regenerate profile vector
     this.generateProfileVectorAsync(user);
 
     return user;
+  }
+
+  /**
+   * Update full profile
+   */
+  async updateProfile(userId: string, data: {
+    fullname?: string;
+    phone?: string;
+    skills?: string[];
+    experience?: Record<string, any>[];
+  }): Promise<User | null> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return null;
+
+    if (data.fullname) user.fullname = data.fullname;
+    if (data.phone) user.phone = data.phone;
+    if (data.skills) user.skills = data.skills;
+    if (data.experience) user.experience = data.experience;
+
+    this.updateProfileCompleteness(user);
+    await this.userRepository.save(user);
+    
+    // Regenerate vector if key fields changed
+    if (data.skills || data.experience) {
+       this.generateProfileVectorAsync(user);
+    }
+
+    return user;
+  }
+
+  private updateProfileCompleteness(user: User): void {
+    let score = 0;
+    if (user.fullname) score += 10;
+    if (user.email) score += 10;
+    if (user.phone) score += 10;
+    if (user.skills && user.skills.length >= 3) score += 20;
+    else if (user.skills && user.skills.length > 0) score += 10;
+    
+    if (user.experience && user.experience.length > 0) score += 20;
+    if (user.masterResumeText || user.resumeFileUrl) score += 30;
+
+    user.profileCompleteness = Math.min(score, 100);
   }
 
   /**
