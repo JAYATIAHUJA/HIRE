@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -14,6 +15,7 @@ export class MatchingService {
     @InjectRepository(JobListing)
     private jobRepository: Repository<JobListing>,
     private llmService: LlmService,
+    private configService: ConfigService,
     @InjectPinoLogger(MatchingService.name) private readonly logger: PinoLogger,
   ) {
     logger.setContext(MatchingService.name);
@@ -209,7 +211,8 @@ export class MatchingService {
     } catch (error) {
       console.warn(`Failed to generate profile embedding for user ${userId}: ${error.message}`);
       // Fallback: Use zero vector so feed can load
-      user.profileVector = new Array(768).fill(0);
+      const dim = parseInt(this.configService.get('EMBEDDING_DIMENSION', '1536'), 10);
+      user.profileVector = new Array(dim).fill(0);
       await this.userRepository.save(user);
     }
   }
@@ -230,7 +233,8 @@ export class MatchingService {
     } catch (error) {
       console.warn(`Failed to generate job embedding for job ${jobId}: ${error.message}`);
       // Fallback: Use zero vector
-      job.descriptionVector = new Array(768).fill(0);
+      const dim = parseInt(this.configService.get('EMBEDDING_DIMENSION', '1536'), 10);
+      job.descriptionVector = new Array(dim).fill(0);
       await this.jobRepository.save(job);
     }
   }
