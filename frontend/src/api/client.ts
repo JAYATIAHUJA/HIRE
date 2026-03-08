@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { toast } from 'sonner';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:3000';
 
@@ -8,6 +9,26 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ message?: string; error?: string }>) => {
+    let message = 'An unexpected error occurred';
+    
+    if (error.response?.data) {
+      message = error.response.data.message || error.response.data.error || message;
+    } else if (error.message) {
+      message = error.message;
+    }
+    
+    // Ignore 404s for specific checks if needed, but generally show error
+    // Don't show toast for 401/403 if handling auth redirect elsewhere, 
+    // but here we'll show it for visibility.
+    toast.error(message);
+    
+    return Promise.reject(error);
+  }
+);
 
 export interface JobCard {
   jobId: string;
