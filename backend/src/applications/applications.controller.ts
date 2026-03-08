@@ -8,6 +8,7 @@ import {
 
   HttpCode,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
@@ -81,6 +82,10 @@ export class ApplicationsController {
   @Get(':id')
   async getOne(@Param('id') id: string) {
     const application = await this.applicationsService.findOne(id);
+
+    if (!application) {
+      throw new NotFoundException(`Application with ID ${id} not found`);
+    }
 
     return {
       id: application.id,
